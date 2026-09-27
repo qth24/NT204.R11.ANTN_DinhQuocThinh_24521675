@@ -57,6 +57,20 @@ Gói không phải IPv4 (ARP, IPv6...), header cụt, version/IHL sai, total len
   → không có header transport, ghi `error`.
 - Header cụt, data offset / UDP length sai → ghi vào `error`, vẫn giữ port nếu đọc được.
 
+### Application protocol detector (`parsers/app_detector.py`)
+
+`detect_app_protocol(transport, src_port, dst_port, payload) -> AppDetection(app_protocol, detected_by)`
+
+Kết hợp **payload-based** (ưu tiên) và **port-based** (dự phòng):
+
+| Protocol | Nhận diện theo payload | Port dự phòng |
+|---|---|---|
+| HTTP | Dòng đầu `GET/POST/PUT/DELETE/HEAD/OPTIONS/PATCH <target> [HTTP/1.x]`, hoặc `HTTP/1.x <3 chữ số>` | 80, 8000, 8008, 8080, 8888 (TCP) |
+| SMTP | `HELO/EHLO`, `MAIL FROM:`, `RCPT TO:`, greeting `220 ... ESMTP` ở mọi port; `DATA/QUIT/...` và reply `250 ...` chỉ khi ở port SMTP (vì FTP/POP3 dùng định dạng giống vậy) | 25, 587, 2525 (TCP) |
+| DNS | Header 12 byte hợp lệ (opcode, số record khớp độ dài). Ngoài port 53/5353 phải decode được đúng 1 câu hỏi (tên, QTYPE, QCLASS). DNS qua TCP có tiền tố độ dài 2 byte | 53, 5353 |
+
+Payload rỗng (vd TCP handshake) hoặc không khớp → `app_protocol=None` (UNKNOWN).
+
 ## Chạy test
 
 ```bash
@@ -70,3 +84,4 @@ python -m pytest tests
 | Claude Code (Claude Opus) | Thiết kế và sinh code module capture, viết unit test | `capture/raw_packet.py`, `capture/pcap_reader.py`, `capture/live_capture.py`, `tests/test_capture.py` |
 | Claude Code (Claude Opus) | Sinh code IPv4 parser (bóc link layer, decode header, checksum), viết unit test | `parsers/network.py`, `tests/test_network.py` |
 | Claude Code (Claude Opus) | Sinh code TCP/UDP parser (ports, flags, seq/ack, UDP length), viết unit test | `parsers/transport.py`, `tests/test_transport.py` |
+| Claude Code (Claude Opus) | Thiết kế luật nhận diện HTTP/SMTP/DNS theo payload + port, viết unit test | `parsers/app_detector.py`, `tests/test_app_detector.py` |
