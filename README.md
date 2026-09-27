@@ -125,6 +125,12 @@ Mọi parser trả về `AppResult(data, error)`: `data` là dict JSON-serializa
 | `error` | Lỗi của mọi layer, dạng `"network: ...; http: ..."`, `null` nếu sạch |
 | `length`, `ip_protocol`, `ttl`, `tcp_seq`, `tcp_ack`, `tcp_window`, `payload_length`, `detected_by`, `source` | Thông tin bổ sung |
 
+### JSON Lines logger (`core/logger.py`)
+
+`JsonLinesWriter(path, append=False)` (context manager): mỗi event là 1 dòng JSON
+(`ensure_ascii=False`, giữ nguyên tiếng Việt), `flush()` sau mỗi dòng để theo dõi live
+bằng `tail -f` và không mất dữ liệu khi Ctrl+C. `path="-"` ghi ra stdout.
+
 ## Chạy test
 
 ```bash
@@ -143,3 +149,4 @@ python -m pytest tests
 | Claude Code (Claude Opus) | Sinh code DNS parser (header, question, resource record, name compression), viết unit test | `parsers/app/dns_parser.py`, `tests/test_dns_parser.py` |
 | Claude Code (Claude Opus) | Sinh code SMTP parser (command, reply nhiều dòng, message data), viết unit test | `parsers/app/smtp_parser.py`, `tests/test_smtp_parser.py` |
 | Claude Code (Claude Opus) | Thiết kế schema Normalized IDS Event, viết unit test | `core/event.py`, `tests/test_event.py` |
+| Claude Code (Claude Opus) | Sinh code ghi JSON Lines, viết unit test | `core/logger.py`, `tests/test_logger.py` |
