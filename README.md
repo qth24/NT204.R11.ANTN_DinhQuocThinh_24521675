@@ -87,6 +87,18 @@ Mọi parser trả về `AppResult(data, error)`: `data` là dict JSON-serializa
   khi body nằm ở các TCP segment sau.
 - Segment giữa message (không có start line) → `type: "continuation"`.
 
+**DNS** (`dns_parser.py`, `parse_dns(payload, tcp=False)`):
+
+- Header 12 byte: `id`, query/response (bit QR), `opcode`, `rcode` + tên (`NXDOMAIN`...),
+  cờ `aa/tc/rd/ra`, số lượng record từng section.
+- Question (`name`, `type`, `class`) và resource record của 3 section answers /
+  authorities / additionals (`name`, `type`, `class`, `ttl`, `data`).
+- Decode RDATA: A, AAAA, CNAME, NS, PTR, MX, TXT, SOA, SRV, OPT (EDNS); type khác → hex.
+- Hỗ trợ name compression (con trỏ `0xC0`), giới hạn 20 lần nhảy để chống vòng lặp,
+  kiểm tra biên mọi lần đọc. Label nhị phân hiển thị dạng `\xNN`.
+- Message cụt / số record khai báo sai → giữ phần đã parse, ghi `error`.
+- `tcp=True` bỏ 2 byte độ dài ở đầu (DNS qua TCP).
+
 ## Chạy test
 
 ```bash
@@ -102,3 +114,4 @@ python -m pytest tests
 | Claude Code (Claude Opus) | Sinh code TCP/UDP parser (ports, flags, seq/ack, UDP length), viết unit test | `parsers/transport.py`, `tests/test_transport.py` |
 | Claude Code (Claude Opus) | Thiết kế luật nhận diện HTTP/SMTP/DNS theo payload + port, viết unit test | `parsers/app_detector.py`, `tests/test_app_detector.py` |
 | Claude Code (Claude Opus) | Sinh code HTTP/1.x parser (request/response line, header, body), viết unit test | `parsers/app/__init__.py`, `parsers/app/http_parser.py`, `tests/test_http_parser.py` |
+| Claude Code (Claude Opus) | Sinh code DNS parser (header, question, resource record, name compression), viết unit test | `parsers/app/dns_parser.py`, `tests/test_dns_parser.py` |
