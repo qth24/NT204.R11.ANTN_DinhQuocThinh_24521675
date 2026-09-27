@@ -111,6 +111,18 @@ Mọi parser trả về `AppResult(data, error)`: `data` là dict JSON-serializa
   `end_of_data` (gặp `<CRLF>.<CRLF>`), `preview`.
 - Lệnh sai cú pháp/không biết, reply code không hợp lệ → vẫn ghi nhận, báo trong `error`.
 
+### Pipeline (`core/pipeline.py`)
+
+`Pipeline(skip_unknown=False)` dùng chung cho live và PCAP:
+
+- `process(raw) -> IDSEvent | None`: gán `packet_id` (bộ đếm tăng dần), rồi gọi lần lượt
+  network → transport → app detector → app parser. **Mỗi layer có try/except riêng**:
+  layer lỗi thì các field của layer trước vẫn giữ, lỗi ghi vào `error` dạng
+  `"<layer>: <mô tả>"`, chương trình không dừng.
+- Gói không thuộc protocol hỗ trợ → `protocol="UNKNOWN"`; nếu `skip_unknown=True` thì bỏ qua.
+- `run(source, sink) -> PipelineStats`: chạy trên mọi `RawPacket` của nguồn, đẩy event
+  cho `sink` (vd `JsonLinesWriter.write`), trả thống kê theo protocol.
+
 ### Normalized IDS Event (`core/event.py`)
 
 `IDSEvent` (dataclass, `to_dict()` → JSON) là đầu ra duy nhất mà các bài IDS sau đọc:
@@ -150,3 +162,4 @@ python -m pytest tests
 | Claude Code (Claude Opus) | Sinh code SMTP parser (command, reply nhiều dòng, message data), viết unit test | `parsers/app/smtp_parser.py`, `tests/test_smtp_parser.py` |
 | Claude Code (Claude Opus) | Thiết kế schema Normalized IDS Event, viết unit test | `core/event.py`, `tests/test_event.py` |
 | Claude Code (Claude Opus) | Sinh code ghi JSON Lines, viết unit test | `core/logger.py`, `tests/test_logger.py` |
+| Claude Code (Claude Opus) | Sinh code pipeline nối các parser, xử lý lỗi theo layer, viết integration test | `core/pipeline.py`, `tests/test_pipeline.py` |
