@@ -99,6 +99,18 @@ Mọi parser trả về `AppResult(data, error)`: `data` là dict JSON-serializa
 - Message cụt / số record khai báo sai → giữ phần đã parse, ghi `error`.
 - `tcp=True` bỏ 2 byte độ dài ở đầu (DNS qua TCP).
 
+**SMTP** (`smtp_parser.py`, `parse_smtp(payload)`), phân loại theo dòng đầu tiên:
+
+- **command**: parse mọi dòng (hỗ trợ PIPELINING) → `commands` [{command, argument}],
+  `helo`, `mail_from`, `rcpt_to` (list), `auth_mechanism`. Credential của `AUTH` bị che
+  (`[redacted]`), không ghi vào log.
+- **response**: `status_code`, `status_class` (2xx/3xx/4xx/5xx), `enhanced_status`
+  (RFC 3463, vd `5.1.1`), `message`; gom reply nhiều dòng (`250-...` → `250 ...`) và nhiều
+  reply trong 1 segment vào `replies`.
+- **data**: nội dung email sau `DATA` → `subject`, `from`, `to`, `length`,
+  `end_of_data` (gặp `<CRLF>.<CRLF>`), `preview`.
+- Lệnh sai cú pháp/không biết, reply code không hợp lệ → vẫn ghi nhận, báo trong `error`.
+
 ## Chạy test
 
 ```bash
@@ -115,3 +127,4 @@ python -m pytest tests
 | Claude Code (Claude Opus) | Thiết kế luật nhận diện HTTP/SMTP/DNS theo payload + port, viết unit test | `parsers/app_detector.py`, `tests/test_app_detector.py` |
 | Claude Code (Claude Opus) | Sinh code HTTP/1.x parser (request/response line, header, body), viết unit test | `parsers/app/__init__.py`, `parsers/app/http_parser.py`, `tests/test_http_parser.py` |
 | Claude Code (Claude Opus) | Sinh code DNS parser (header, question, resource record, name compression), viết unit test | `parsers/app/dns_parser.py`, `tests/test_dns_parser.py` |
+| Claude Code (Claude Opus) | Sinh code SMTP parser (command, reply nhiều dòng, message data), viết unit test | `parsers/app/smtp_parser.py`, `tests/test_smtp_parser.py` |
