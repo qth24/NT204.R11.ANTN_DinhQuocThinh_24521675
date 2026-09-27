@@ -46,6 +46,17 @@ sai) được báo bằng `CaptureError`.
 Gói không phải IPv4 (ARP, IPv6...), header cụt, version/IHL sai, total length sai
 đều được ghi vào `error` thay vì làm crash chương trình.
 
+### Transport parser (`parsers/transport.py`)
+
+`parse_transport(protocol, data, fragment_offset) -> TransportLayer`, không bao giờ raise:
+
+- **TCP** (proto 6): src/dst port, seq, ack, window, data offset (độ dài header kể cả
+  options), cờ `FIN/SYN/RST/PSH/ACK/URG/ECE/CWR/NS`; payload = phần sau header.
+- **UDP** (proto 17): src/dst port, length; payload cắt theo field length.
+- Protocol khác (ICMP...) → `protocol="UNKNOWN"`. Fragment IP không phải đầu tiên
+  → không có header transport, ghi `error`.
+- Header cụt, data offset / UDP length sai → ghi vào `error`, vẫn giữ port nếu đọc được.
+
 ## Chạy test
 
 ```bash
@@ -58,3 +69,4 @@ python -m pytest tests
 |---|---|---|
 | Claude Code (Claude Opus) | Thiết kế và sinh code module capture, viết unit test | `capture/raw_packet.py`, `capture/pcap_reader.py`, `capture/live_capture.py`, `tests/test_capture.py` |
 | Claude Code (Claude Opus) | Sinh code IPv4 parser (bóc link layer, decode header, checksum), viết unit test | `parsers/network.py`, `tests/test_network.py` |
+| Claude Code (Claude Opus) | Sinh code TCP/UDP parser (ports, flags, seq/ack, UDP length), viết unit test | `parsers/transport.py`, `tests/test_transport.py` |
