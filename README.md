@@ -71,6 +71,22 @@ Kết hợp **payload-based** (ưu tiên) và **port-based** (dự phòng):
 
 Payload rỗng (vd TCP handshake) hoặc không khớp → `app_protocol=None` (UNKNOWN).
 
+### Application parsers (`parsers/app/`)
+
+Mọi parser trả về `AppResult(data, error)`: `data` là dict JSON-serializable (thành
+`app_data` của event), `error` ghi lỗi parse thay vì raise.
+
+**HTTP** (`http_parser.py`, `parse_http(payload)`):
+
+- Tách header/body tại dòng trống `\r\n\r\n` (chấp nhận cả `\n\n`).
+- Request line → `method`, `uri`, `version`; status line → `version`, `status_code`, `reason`.
+- Header decode ISO-8859-1 (không bao giờ lỗi), tra cứu không phân biệt hoa thường,
+  header lặp lại được nối bằng `, `. Trích riêng `host`, `user_agent`, `server`,
+  `content_type`, `content_length`.
+- Body decode UTF-8 `errors="replace"`, chỉ giữ tối đa 1024 ký tự; `body_truncated`
+  khi body nằm ở các TCP segment sau.
+- Segment giữa message (không có start line) → `type: "continuation"`.
+
 ## Chạy test
 
 ```bash
@@ -85,3 +101,4 @@ python -m pytest tests
 | Claude Code (Claude Opus) | Sinh code IPv4 parser (bóc link layer, decode header, checksum), viết unit test | `parsers/network.py`, `tests/test_network.py` |
 | Claude Code (Claude Opus) | Sinh code TCP/UDP parser (ports, flags, seq/ack, UDP length), viết unit test | `parsers/transport.py`, `tests/test_transport.py` |
 | Claude Code (Claude Opus) | Thiết kế luật nhận diện HTTP/SMTP/DNS theo payload + port, viết unit test | `parsers/app_detector.py`, `tests/test_app_detector.py` |
+| Claude Code (Claude Opus) | Sinh code HTTP/1.x parser (request/response line, header, body), viết unit test | `parsers/app/__init__.py`, `parsers/app/http_parser.py`, `tests/test_http_parser.py` |
