@@ -111,6 +111,20 @@ Mọi parser trả về `AppResult(data, error)`: `data` là dict JSON-serializa
   `end_of_data` (gặp `<CRLF>.<CRLF>`), `preview`.
 - Lệnh sai cú pháp/không biết, reply code không hợp lệ → vẫn ghi nhận, báo trong `error`.
 
+### Normalized IDS Event (`core/event.py`)
+
+`IDSEvent` (dataclass, `to_dict()` → JSON) là đầu ra duy nhất mà các bài IDS sau đọc:
+
+| Field | Ý nghĩa |
+|---|---|
+| `packet_id`, `timestamp` | Số thứ tự gói (từ 1), thời điểm bắt (epoch giây) |
+| `src_ip`, `dst_ip` | Địa chỉ IPv4 |
+| `protocol` | `TCP` / `UDP` / `UNKNOWN` |
+| `src_port`, `dst_port`, `tcp_flags` | Port, cờ TCP (`["SYN","ACK"]`) |
+| `app_protocol`, `app_data` | `HTTP`/`DNS`/`SMTP`/`null` và dữ liệu đã parse |
+| `error` | Lỗi của mọi layer, dạng `"network: ...; http: ..."`, `null` nếu sạch |
+| `length`, `ip_protocol`, `ttl`, `tcp_seq`, `tcp_ack`, `tcp_window`, `payload_length`, `detected_by`, `source` | Thông tin bổ sung |
+
 ## Chạy test
 
 ```bash
@@ -128,3 +142,4 @@ python -m pytest tests
 | Claude Code (Claude Opus) | Sinh code HTTP/1.x parser (request/response line, header, body), viết unit test | `parsers/app/__init__.py`, `parsers/app/http_parser.py`, `tests/test_http_parser.py` |
 | Claude Code (Claude Opus) | Sinh code DNS parser (header, question, resource record, name compression), viết unit test | `parsers/app/dns_parser.py`, `tests/test_dns_parser.py` |
 | Claude Code (Claude Opus) | Sinh code SMTP parser (command, reply nhiều dòng, message data), viết unit test | `parsers/app/smtp_parser.py`, `tests/test_smtp_parser.py` |
+| Claude Code (Claude Opus) | Thiết kế schema Normalized IDS Event, viết unit test | `core/event.py`, `tests/test_event.py` |
