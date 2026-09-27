@@ -33,6 +33,19 @@ Cả hai nguồn đều trả về iterator các `RawPacket` giống nhau (`time
 Lỗi không mở được nguồn (file không tồn tại, không phải PCAP, thiếu quyền, interface
 sai) được báo bằng `CaptureError`.
 
+### Network parser (`parsers/network.py`)
+
+`parse_network(data, linktype) -> NetworkLayer`, không bao giờ raise:
+
+1. **Bóc header link layer** theo linktype: Ethernet (1, có bỏ qua VLAN 802.1Q),
+   raw IP (12/101/228), Linux cooked SLL (113), SLL2 (276), BSD loopback (0).
+2. **Parse IPv4 header** (RFC 791) bằng `struct`: version, IHL, total length, id, flags
+   (DF/MF), fragment offset, TTL, protocol, src/dst IP, kiểm tra checksum.
+3. `payload` được cắt theo `total_length` (loại bỏ Ethernet padding) để giao cho transport parser.
+
+Gói không phải IPv4 (ARP, IPv6...), header cụt, version/IHL sai, total length sai
+đều được ghi vào `error` thay vì làm crash chương trình.
+
 ## Chạy test
 
 ```bash
@@ -44,3 +57,4 @@ python -m pytest tests
 | Công cụ | Mục đích | Phần code |
 |---|---|---|
 | Claude Code (Claude Opus) | Thiết kế và sinh code module capture, viết unit test | `capture/raw_packet.py`, `capture/pcap_reader.py`, `capture/live_capture.py`, `tests/test_capture.py` |
+| Claude Code (Claude Opus) | Sinh code IPv4 parser (bóc link layer, decode header, checksum), viết unit test | `parsers/network.py`, `tests/test_network.py` |
