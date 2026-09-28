@@ -158,7 +158,7 @@ Mọi parser trả về `AppResult(data, error)`: `data` là dict JSON-serializa
 | `app_protocol`, `app_data` | `HTTP`/`DNS`/`SMTP`/`null` và dữ liệu đã parse |
 | `error` | Lỗi của mọi layer, dạng `"network: ...; http: ..."`, `null` nếu sạch |
 | `length`, `ip_protocol`, `ttl`, `tcp_seq`, `tcp_ack`, `tcp_window`, `payload_length`, `detected_by`, `source` | Thông tin bổ sung |
-| `payload_preview` | 128 byte đầu của payload dạng text, byte không in được hiển thị `\xNN` |
+| `payload_preview` | 128 byte đầu của payload **không thuộc HTTP/DNS/SMTP** (dạng text, byte không in được hiển thị `\xNN`); `null` khi đã parse vào `app_data` — tránh lộ dữ liệu nhạy cảm như credential SMTP AUTH |
 
 ### JSON Lines logger (`core/logger.py`)
 

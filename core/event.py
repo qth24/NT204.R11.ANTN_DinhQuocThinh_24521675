@@ -32,8 +32,9 @@ class IDSEvent:
         ttl: IPv4 time-to-live.
         tcp_seq / tcp_ack / tcp_window: TCP header values.
         payload_length: bytes of application payload.
-        payload_preview: first bytes of the payload as text; non-printable
-            bytes are shown as \\xNN (None when there is no payload).
+        payload_preview: first bytes of a payload that no application parser
+            handled, as text; non-printable bytes are shown as \\xNN (None
+            when there is no payload or app_protocol is set).
         detected_by: "payload" or "port" (how app_protocol was recognised).
         source: "live:<iface>" or "pcap:<file>".
     """

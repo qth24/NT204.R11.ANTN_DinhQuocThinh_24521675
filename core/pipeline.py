@@ -143,7 +143,6 @@ class Pipeline:
         event.tcp_ack = tr.ack
         event.tcp_window = tr.window
         event.payload_length = len(tr.payload)
-        event.payload_preview = _preview(tr.payload)
         event.add_error("transport", tr.error)
         return tr
 
@@ -153,6 +152,10 @@ class Pipeline:
                 tr.protocol, tr.src_port, tr.dst_port, tr.payload
             )
             if detection.app_protocol is None:
+                # Unparsed payload: keep a raw preview for signature matching.
+                # Parsed protocols carry their data in app_data instead (so
+                # e.g. SMTP AUTH credentials redacted there never leak here).
+                event.payload_preview = _preview(tr.payload)
                 return
             event.app_protocol = detection.app_protocol
             event.detected_by = detection.detected_by

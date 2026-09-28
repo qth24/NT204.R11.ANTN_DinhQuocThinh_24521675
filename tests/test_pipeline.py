@@ -60,7 +60,7 @@ def test_http_get_event() -> None:
     assert event.app_data["method"] == "GET"
     assert event.app_data["host"] == "example.com"
     assert event.payload_length == len(payload)
-    assert event.payload_preview == payload.decode()
+    assert event.payload_preview is None  # parsed data lives in app_data
 
 
 def test_dns_response_event() -> None:
@@ -173,3 +173,10 @@ def test_payload_preview_escapes_binary_and_is_limited() -> None:
     assert event.payload_preview.startswith("AB\\x00\\xff\r\n")
     assert len(event.payload_preview) == 128 + 6  # 2 escapes add 3 chars each
     assert Pipeline().process(_raw(_tcp(1, 2, "S"))).payload_preview is None
+
+
+def test_smtp_auth_credentials_do_not_leak() -> None:
+    payload = b"AUTH PLAIN AGFsaWNlAHNlY3JldA==\r\n"
+    event = Pipeline().process(_raw(_tcp(40000, 25, "PA", payload)))
+    assert event.app_data["auth_mechanism"] == "PLAIN"
+    assert "AGFsaWNl" not in json.dumps(event.to_dict())
