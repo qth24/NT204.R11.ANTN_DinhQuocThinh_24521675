@@ -130,10 +130,13 @@ def _looks_like_dns_over_tcp(payload: bytes) -> bool:
 def _looks_like_dns(msg: bytes, strict: bool) -> bool:
     """Check that ``msg`` has a plausible DNS header (RFC 1035 4.1.1).
 
-    Loose check: valid opcode, at least one record, and the record counts fit
-    in the message (a question is >= 5 bytes, a resource record >= 11 bytes).
-    Strict check additionally requires exactly one question whose name,
-    type and class decode correctly.
+    Loose check (DNS port): 12-byte header, valid opcode, at least one record.
+    A header whose counts do not match the message is still accepted, so the
+    DNS parser can report it as malformed instead of it silently becoming an
+    unknown payload.
+    Strict check (any other port): the record counts must also fit in the
+    message (a question is >= 5 bytes, a resource record >= 11 bytes) and
+    exactly one question must decode (name, type, class).
     """
     if len(msg) < _DNS_HEADER.size:
         return False
@@ -143,10 +146,10 @@ def _looks_like_dns(msg: bytes, strict: bool) -> bool:
         return False
     if qd + an + ns + ar == 0:
         return False
-    if _DNS_HEADER.size + qd * 5 + (an + ns + ar) * 11 > len(msg):
-        return False
     if not strict:
         return True
+    if _DNS_HEADER.size + qd * 5 + (an + ns + ar) * 11 > len(msg):
+        return False
     return qd == 1 and _first_question_ok(msg)
 
 

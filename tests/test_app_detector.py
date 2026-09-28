@@ -128,3 +128,13 @@ def test_binary_payload_does_not_crash() -> None:
     for proto in ("TCP", "UDP"):
         for port in (25, 53, 80, 9999):
             detect_app_protocol(proto, 1, port, payload)
+
+
+def test_malformed_dns_on_dns_port_is_still_dns() -> None:
+    # Header announces 50 answers but carries none: the parser must see it
+    # (and report the error) instead of it becoming an unknown payload.
+    header = struct.pack("!HHHHHH", 1, 0x8180, 1, 50, 0, 0)
+    payload = header + b"\x03uit\x03edu\x02vn\x00\x00\x01\x00\x01"
+    assert detect_app_protocol("UDP", 53, 5000, payload).app_protocol == "DNS"
+    # Same bytes on a random port: strict check rejects it
+    assert detect_app_protocol("UDP", 6000, 5000, payload).app_protocol is None
