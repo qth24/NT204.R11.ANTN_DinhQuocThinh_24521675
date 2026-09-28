@@ -32,7 +32,11 @@ def main() -> None:
         / ip
         / TCP(sport=22, dport=51000, flags="PA")
         / Raw(b"SSH-2.0-OpenSSH_9.6\r\n"),
-        eth / ip / UDP(sport=51001, dport=123) / NTP(),
+        # fixed timestamps: NTP() fills orig/sent with the current time
+        eth
+        / ip
+        / UDP(sport=51001, dport=123)
+        / NTP(ref=0, orig=0, recv=0, sent=3968000000),
     ]
     for i, pkt in enumerate(packets):
         pkt.time = BASE_TIME + i * 0.001
