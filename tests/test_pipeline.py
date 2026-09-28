@@ -60,6 +60,7 @@ def test_http_get_event() -> None:
     assert event.app_data["method"] == "GET"
     assert event.app_data["host"] == "example.com"
     assert event.payload_length == len(payload)
+    assert event.payload_preview == payload.decode()
 
 
 def test_dns_response_event() -> None:
@@ -164,3 +165,11 @@ def test_run_collects_stats() -> None:
     assert stats.by_protocol["TCP"] == 2
     assert stats.by_app_protocol["HTTP"] == 1
     assert [e.packet_id for e in events] == [1, 2]
+
+
+def test_payload_preview_escapes_binary_and_is_limited() -> None:
+    payload = b"AB\x00\xff\r\n" + b"x" * 500
+    event = Pipeline().process(_raw(_tcp(40000, 9000, "PA", payload)))
+    assert event.payload_preview.startswith("AB\\x00\\xff\r\n")
+    assert len(event.payload_preview) == 128 + 6  # 2 escapes add 3 chars each
+    assert Pipeline().process(_raw(_tcp(1, 2, "S"))).payload_preview is None

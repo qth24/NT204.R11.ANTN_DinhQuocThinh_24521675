@@ -30,6 +30,9 @@ from parsers.transport import TransportLayer, parse_transport
 
 logger = logging.getLogger(__name__)
 
+# Bytes of payload copied into IDSEvent.payload_preview
+PAYLOAD_PREVIEW_BYTES = 128
+
 
 @dataclass
 class PipelineStats:
@@ -140,6 +143,7 @@ class Pipeline:
         event.tcp_ack = tr.ack
         event.tcp_window = tr.window
         event.payload_length = len(tr.payload)
+        event.payload_preview = _preview(tr.payload)
         event.add_error("transport", tr.error)
         return tr
 
@@ -159,6 +163,16 @@ class Pipeline:
             return
         event.app_data = result.data
         event.add_error(detection.app_protocol.lower(), result.error)
+
+
+def _preview(payload: bytes) -> str | None:
+    """Readable, JSON-safe view of the payload start (for signature matching)."""
+    if not payload:
+        return None
+    chunk = payload[:PAYLOAD_PREVIEW_BYTES]
+    return "".join(
+        chr(b) if 32 <= b < 127 or b in (9, 10, 13) else f"\\x{b:02x}" for b in chunk
+    )
 
 
 def _parse_app(app_protocol: str, tr: TransportLayer) -> AppResult:
