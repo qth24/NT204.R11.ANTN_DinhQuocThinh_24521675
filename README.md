@@ -196,3 +196,4 @@ python -m pytest tests
 | Claude Code (Claude Opus) | Sinh code ghi JSON Lines, viết unit test | `core/logger.py`, `tests/test_logger.py` |
 | Claude Code (Claude Opus) | Sinh code pipeline nối các parser, xử lý lỗi theo layer, viết integration test | `core/pipeline.py`, `tests/test_pipeline.py` |
 | Claude Code (Claude Opus) | Sinh code CLI (argparse, thống kê, xử lý lỗi), viết end-to-end test | `main.py`, `tests/test_main.py` |
+| Claude Code (Claude Opus) | Sinh script tạo PCAP cho 12 test case, chạy và đối chiếu kết quả, sửa các lỗi phát hiện khi test (payload preview, lộ credential SMTP AUTH, nhận diện DNS sai định dạng) | `TEST/`, `core/event.py`, `core/pipeline.py`, `parsers/app_detector.py` |
