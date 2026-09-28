@@ -166,6 +166,15 @@ Mọi parser trả về `AppResult(data, error)`: `data` là dict JSON-serializa
 (`ensure_ascii=False`, giữ nguyên tiếng Việt), `flush()` sau mỗi dòng để theo dõi live
 bằng `tail -f` và không mất dữ liệu khi Ctrl+C. `path="-"` ghi ra stdout.
 
+## Test case (kết quả chấm)
+
+12 test case trong [`TEST/`](TEST/README.md), mỗi case gồm PCAP mẫu (tạo bằng Scapy),
+output JSON Lines và bảng so sánh kết quả mong đợi / thực tế. Chạy lại toàn bộ:
+
+```bash
+bash TEST/run_all.sh
+```
+
 ## Chạy test
 
 ```bash
