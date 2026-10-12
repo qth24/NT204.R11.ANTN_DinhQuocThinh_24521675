@@ -50,11 +50,18 @@ def decode_event(
     try:
         # Decoder runs before normalization: compare protocol names case-insensitively
         app = str(event.get("app_protocol") or "").upper()
-        data = event.get("app_data") or {}
+        data = event.get("app_data")
+        if data is None:
+            data = {}
+        elif not isinstance(data, dict):
+            raise _InvalidInput(f"app_data is not an object ({type(data).__name__})")
         if app == "HTTP":
             event["decoded"] = _decode_http(data, payload, cfg, statuses, errors)
         elif app == "SMTP" and data.get("type") == "data":
             event["decoded"] = _decode_smtp(data, payload, cfg, statuses, errors)
+    except _InvalidInput as exc:
+        statuses.append("failed")
+        errors.append(str(exc))
     except Exception as exc:  # noqa: BLE001 - a decoder bug must not stop the pipeline
         statuses.append("failed")
         errors.append(f"decoder internal error: {exc}")
@@ -62,6 +69,10 @@ def decode_event(
     event["decode_status"] = _overall_status(statuses, errors)
     event["decode_errors"] = errors
     return event
+
+
+class _InvalidInput(ValueError):
+    """Event fields with a type the decoder cannot work with."""
 
 
 # --- HTTP -------------------------------------------------------------------

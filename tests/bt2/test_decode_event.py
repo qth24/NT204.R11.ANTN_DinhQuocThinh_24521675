@@ -136,3 +136,10 @@ def test_lowercase_app_protocol_is_decoded() -> None:
         "app_data": {"type": "data", "preview": "Subject: x\r\n\r\nhi"},
     }
     assert decode_event(smtp, CFG)["decoded"]["mime_parts"][0]["body"] == "hi"
+
+
+def test_app_data_not_an_object() -> None:
+    event = decode_event({"app_protocol": "HTTP", "app_data": ["x"]}, CFG)
+    assert event["decode_status"] == "failed"
+    assert event["decode_errors"] == ["app_data is not an object (list)"]
+    assert event["app_data"] == ["x"]  # raw value untouched
