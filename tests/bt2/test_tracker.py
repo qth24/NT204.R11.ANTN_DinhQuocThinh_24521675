@@ -161,6 +161,9 @@ def test_bad_events_get_no_flow() -> None:
     for event in (
         {},
         {"timestamp": "x", "protocol": "TCP"},
+        {**_tcp(float("nan"), A, B, ["SYN"])},
+        {**_tcp(float("inf"), A, B, ["SYN"])},
+        {**_tcp(-5.0, A, B, ["SYN"])},
         {"timestamp": 1.0, "protocol": "TCP", "src_ip": "bad", "dst_ip": "10.0.0.1",
          "src_port": 1, "dst_port": 2},
         {"timestamp": 1.0, "protocol": "TCP", "src_ip": "10.0.0.1",

@@ -27,6 +27,7 @@ Life of a flow:
 from __future__ import annotations
 
 import ipaddress
+import math
 from collections import Counter
 from typing import Any
 
@@ -76,7 +77,9 @@ class FlowTracker:
         event["flow_id"] = None
         event["direction"] = None
         timestamp = event.get("timestamp")
-        if isinstance(timestamp, bool) or not isinstance(timestamp, (int, float)):
+        if not _valid_time(timestamp):
+            # NaN / inf / negative / non-number would break every timeout
+            # comparison, so such events never join a flow.
             return []
 
         exported = self.sweep(float(timestamp))
@@ -248,6 +251,15 @@ class FlowTracker:
         self._machines.pop(flow.flow_id, None)
         self.end_reasons[reason] += 1
         return flow.to_record()
+
+
+def _valid_time(value: Any) -> bool:
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+        and value >= 0
+    )
 
 
 def _app_protocol(event: dict[str, Any]) -> str | None:
