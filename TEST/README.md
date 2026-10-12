@@ -9,7 +9,7 @@ Mỗi thư mục `case_XX_<tên>/` gồm:
 | `output.jsonl` | Output của `python main.py --pcap input.pcap -o output.jsonl` |
 | `README.md` | Mục tiêu, cách chạy, bảng kết quả mong đợi / thực tế, kết luận |
 
-Chạy lại toàn bộ (từ thư mục gốc repo): `bash TEST/run_all.sh`
+Kiểm tra lại toàn bộ (từ thư mục gốc repo): `bash TEST/run_all.sh` — chạy `main.py --bt1-only` trên từng `input.pcap` và so với `output.jsonl` đã commit (bỏ qua field mới thêm ở BT2 như `ip_total_length`). Muốn sinh lại PCAP của một case: `python TEST/case_XX_.../generate.py`.
 
 ## Tổng hợp
 
