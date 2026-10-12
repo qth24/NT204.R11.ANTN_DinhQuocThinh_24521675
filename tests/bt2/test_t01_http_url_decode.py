@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from conftest import committed, run_case
+from tests.bt2.conftest import committed, run_case
 
 
 def test_t01_http_url_decode() -> None:
