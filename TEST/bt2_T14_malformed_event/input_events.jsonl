@@ -1,0 +1,15 @@
+{this is not json
+[1, 2, 3]
+"just a string"
+{"timestamp": 1759100000.0, "src_ip": "10.0.0.1"}
+{"packet_id": 5, "timestamp": 1759100005.0, "src_ip": "999.10.10.10", "dst_ip": "93.184.216.34", "protocol": "TCP", "src_port": 51005, "dst_port": 80, "tcp_flags": ["PSH", "ACK"], "app_protocol": null, "app_data": {}, "error": null, "ip_total_length": 100, "payload_length": 60}
+{"packet_id": 6, "timestamp": 1759100006.0, "src_ip": "192.168.1.10", "dst_ip": 12345, "protocol": "TCP", "src_port": 51006, "dst_port": 80, "tcp_flags": ["PSH", "ACK"], "app_protocol": null, "app_data": {}, "error": null, "ip_total_length": 100, "payload_length": 60}
+{"packet_id": 7, "timestamp": -5, "src_ip": "192.168.1.10", "dst_ip": "93.184.216.34", "protocol": "TCP", "src_port": 51007, "dst_port": 80, "tcp_flags": ["PSH", "ACK"], "app_protocol": null, "app_data": {}, "error": null, "ip_total_length": 100, "payload_length": 60}
+{"packet_id": 8, "timestamp": "yesterday", "src_ip": "192.168.1.10", "dst_ip": "93.184.216.34", "protocol": "TCP", "src_port": 51008, "dst_port": 80, "tcp_flags": ["PSH", "ACK"], "app_protocol": null, "app_data": {}, "error": null, "ip_total_length": 100, "payload_length": 60}
+{"packet_id": 9, "timestamp": NaN, "src_ip": "10.0.0.1", "dst_ip": "10.0.0.2", "protocol": "TCP", "src_port": 1, "dst_port": 2}
+{"packet_id": 10, "timestamp": 1759100010.0, "src_ip": "192.168.1.10", "dst_ip": "93.184.216.34", "protocol": "TCP", "src_port": 70000, "dst_port": -1, "tcp_flags": ["PSH", "ACK"], "app_protocol": null, "app_data": {}, "error": null, "ip_total_length": 100, "payload_length": 60}
+{"packet_id": 11, "timestamp": 1759100011.0, "src_ip": "192.168.1.10", "dst_ip": "93.184.216.34", "protocol": "ICMP", "src_port": null, "dst_port": null, "tcp_flags": ["PSH", "ACK"], "app_protocol": null, "app_data": {}, "error": null, "ip_total_length": 100, "payload_length": 60}
+{"packet_id": 12, "timestamp": 1759100012.0, "src_ip": null, "dst_ip": null, "protocol": "UNKNOWN", "src_port": null, "dst_port": null, "tcp_flags": ["PSH", "ACK"], "app_protocol": null, "app_data": {}, "error": null, "ip_total_length": 100, "payload_length": 60}
+{"packet_id": 13, "timestamp": 1759100013.0, "src_ip": "192.168.1.10", "dst_ip": "93.184.216.34", "protocol": "TCP", "src_port": 51013, "dst_port": 80, "tcp_flags": "SYN", "app_protocol": "HTTP", "app_data": ["not", "a", "dict"], "error": null, "ip_total_length": 100, "payload_length": 60}
+{"packet_id": "fourteen", "timestamp": 1759100014.0, "src_ip": "192.168.1.10", "dst_ip": "93.184.216.34", "protocol": "TCP", "src_port": 51014, "dst_port": 80, "tcp_flags": ["PSH", "ACK"], "app_protocol": null, "app_data": {}, "error": null, "ip_total_length": 100, "payload_length": 60}
+{"packet_id": 15, "timestamp": 1759100015.0, "src_ip": "192.168.1.10", "dst_ip": "93.184.216.34", "protocol": "TCP", "src_port": 51015, "dst_port": 80, "tcp_flags": ["PSH", "ACK"], "app_protocol": "HTTP", "app_data": {"type": "request", "uri": "/valid"}, "error": null, "ip_total_length": 100, "payload_length": 60}
