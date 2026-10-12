@@ -116,7 +116,7 @@ class FlowTracker:
             size if isinstance(size, int) and not isinstance(size, bool) else 0,
             flags,
             timestamp,
-            event.get("app_protocol"),
+            _app_protocol(event),
         )
         machine = self._machines.get(flow.flow_id)
         if machine is not None:
@@ -248,6 +248,15 @@ class FlowTracker:
         self._machines.pop(flow.flow_id, None)
         self.end_reasons[reason] += 1
         return flow.to_record()
+
+
+def _app_protocol(event: dict[str, Any]) -> str | None:
+    """Normalized (UPPERCASE) app protocol, so a flow never mixes 'http'/'HTTP'."""
+    normalized = event.get("normalized")
+    if isinstance(normalized, dict) and normalized.get("app_protocol"):
+        return normalized["app_protocol"]
+    raw = event.get("app_protocol")
+    return raw.strip().upper() if isinstance(raw, str) and raw.strip() else None
 
 
 def _canonical_ip(ip: str) -> str:

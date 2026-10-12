@@ -169,3 +169,15 @@ def test_bad_events_get_no_flow() -> None:
         assert tracker.process(event) == []
         assert event["flow_id"] is None and event["direction"] is None
     assert tracker.active_count == 0
+
+
+def test_application_protocol_is_normalized() -> None:
+    tracker = FlowTracker(FlowConfig())
+    raw_lower = _tcp(1.0, A, B, ["PSH", "ACK"])
+    raw_lower["app_protocol"] = "http"  # no "normalized" (preprocessor disabled)
+    tracker.process(raw_lower)
+    other = _tcp(1.0, ("10.0.0.3", 1), B, ["PSH", "ACK"])
+    other["app_protocol"] = "dns"
+    other["normalized"] = {"app_protocol": "DNS"}
+    tracker.process(other)
+    assert [r["application_protocol"] for r in tracker.flush()] == ["HTTP", "DNS"]
