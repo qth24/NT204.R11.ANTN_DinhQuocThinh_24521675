@@ -41,6 +41,7 @@ def test_tcp_syn_event() -> None:
     assert event.protocol == "TCP"
     assert (event.src_port, event.dst_port) == (40000, 80)
     assert event.tcp_flags == ["SYN"]
+    assert event.ip_total_length == 40  # 20B IP + 20B TCP
     assert event.app_protocol is None
     assert event.error is None
     json.dumps(event.to_dict())

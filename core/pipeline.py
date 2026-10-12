@@ -122,6 +122,7 @@ class Pipeline:
         event.src_ip = net.src_ip
         event.dst_ip = net.dst_ip
         event.ip_protocol = net.protocol
+        event.ip_total_length = net.total_length
         event.ttl = net.ttl
         event.add_error("network", net.error)
         return net

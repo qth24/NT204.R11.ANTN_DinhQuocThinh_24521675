@@ -29,6 +29,8 @@ class IDSEvent:
     Extra context fields:
         length: original frame length on the wire.
         ip_protocol: IP protocol number (1 = ICMP, 6 = TCP, 17 = UDP...).
+        ip_total_length: IPv4 "total length" field (IP header + payload);
+            used as the byte count of flows (BT2).
         ttl: IPv4 time-to-live.
         tcp_seq / tcp_ack / tcp_window: TCP header values.
         payload_length: bytes of application payload.
@@ -52,6 +54,7 @@ class IDSEvent:
     error: str | None = None
     length: int = 0
     ip_protocol: int | None = None
+    ip_total_length: int | None = None
     ttl: int | None = None
     tcp_seq: int | None = None
     tcp_ack: int | None = None
