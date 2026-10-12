@@ -126,3 +126,13 @@ def test_wrong_types_do_not_crash() -> None:
     result = decode_event(event, CFG)
     json.dumps(result)
     assert result["decoded"]["uri"] is None
+
+
+def test_lowercase_app_protocol_is_decoded() -> None:
+    event = {"app_protocol": "http", "app_data": {"type": "request", "uri": "/a%20b"}}
+    assert decode_event(event, CFG)["decoded"]["uri"] == "/a b"
+    smtp = {
+        "app_protocol": "Smtp",
+        "app_data": {"type": "data", "preview": "Subject: x\r\n\r\nhi"},
+    }
+    assert decode_event(smtp, CFG)["decoded"]["mime_parts"][0]["body"] == "hi"

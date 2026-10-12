@@ -48,7 +48,8 @@ def decode_event(
     statuses: list[str] = []
     errors: list[str] = []
     try:
-        app = event.get("app_protocol")
+        # Decoder runs before normalization: compare protocol names case-insensitively
+        app = str(event.get("app_protocol") or "").upper()
         data = event.get("app_data") or {}
         if app == "HTTP":
             event["decoded"] = _decode_http(data, payload, cfg, statuses, errors)
