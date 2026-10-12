@@ -1,0 +1,21 @@
+{
+  "decoder": {
+    "enabled": true,
+    "max_body_bytes": 65536
+  },
+  "preprocess": {
+    "enabled": true,
+    "on_invalid": "mark",
+    "on_unsupported": "mark",
+    "log_dropped": true
+  },
+  "flow": {
+    "enabled": true,
+    "tcp_idle_timeout": 300.0,
+    "udp_idle_timeout": 60.0,
+    "closed_linger": 5.0,
+    "max_active_flows": 100000,
+    "portless": "skip",
+    "sweep_interval": 1.0
+  }
+}
