@@ -1,13 +1,16 @@
-# IDS Packet Capture & Parser
+# IDS — Packet Capture, Decoder & Flow Tracker
 
-Bài tập 1 môn **Hệ thống tìm kiếm, phát hiện và ngăn chặn xâm nhập**: module thu thập traffic (live hoặc từ PCAP), parse qua các layer IPv4 → TCP/UDP → HTTP/DNS/SMTP và xuất ra **Normalized IDS Event** dạng JSON Lines.
+Bài tập lớn môn **Hệ thống tìm kiếm, phát hiện và ngăn chặn xâm nhập (IDS/IPS)**, dùng chung một repo cho các bài tập:
+
+- **Bài tập 1 — Packet Capture & Parser:** thu thập traffic (live hoặc PCAP), parse IPv4 → TCP/UDP → HTTP/DNS/SMTP, xuất **Normalized IDS Event**.
+- **Bài tập 2 — Decoder, Preprocessor & Flow/Connection Tracker:** giải mã event → kiểm tra/chuẩn hóa → gắn vào **flow hai chiều** có trạng thái và thống kê.
 
 - **Sinh viên:** Đinh Quốc Thịnh
 - **MSSV:** 24521675
 
 ## Cài đặt
 
-Yêu cầu Python 3.10+ (thư viện chính: Scapy).
+Yêu cầu Python 3.10+ (thư viện ngoài duy nhất: Scapy; decode/normalize chỉ dùng thư viện chuẩn).
 
 ```bash
 python3 -m venv .venv
@@ -18,38 +21,66 @@ pip install -r requirements.txt
 ## Chạy chương trình
 
 ```bash
-# Đọc file PCAP/PCAPNG
-python main.py --pcap test.pcap --output output.jsonl
+# PCAP: event đã qua Decoder + Preprocessor + Flow Tracker và các flow đã kết thúc
+python main.py --pcap test.pcap --output events.jsonl --flow-output flows.jsonl --config config.json
 
-# Bắt live (cần root), có thể lọc BPF, giới hạn số gói / thời gian
-sudo .venv/bin/python main.py --interface eth0 --filter "tcp port 80" --count 100
-sudo .venv/bin/python main.py --interface eth0 --timeout 30 --skip-unknown
+# Bắt live (cần root); Ctrl+C vẫn ghi đủ event và flush các flow còn mở
+sudo .venv/bin/python main.py --interface eth0 --filter "tcp port 80"
+
+# Đổi một ngưỡng từ CLI (ưu tiên hơn file config)
+python main.py --pcap test.pcap --set flow.tcp_idle_timeout=30 --set preprocess.on_invalid=drop
+
+# Chạy các stage BT2 trên event JSONL có sẵn (không cần packet)
+python main.py --events input_events.jsonl -o events.jsonl --flow-output flows.jsonl
+
+# Chỉ chạy BT1 (output giống Bài tập 1)
+python main.py --pcap test.pcap --bt1-only --output output.jsonl
 ```
 
 | Tham số | Ý nghĩa |
 |---|---|
-| `-i/--interface`, `-r/--pcap` | Nguồn dữ liệu (bắt buộc chọn 1) |
-| `-o/--output` | File JSON Lines (mặc định `output.jsonl`, `-` = stdout); `--append` để ghi nối |
+| `-i/--interface`, `-r/--pcap`, `-e/--events` | Nguồn dữ liệu (bắt buộc chọn 1): live, file PCAP/PCAPNG, file event JSONL |
+| `-o/--output` | Event JSON Lines (mặc định `output.jsonl`, `-` = stdout) |
+| `--flow-output` | Flow JSON Lines (mặc định `flows.jsonl`) |
+| `--config`, `--set SECTION.KEY=VALUE` | File config (`.json`; `.yaml` nếu có PyYAML) và ghi đè từng giá trị |
+| `--bt1-only` | Bỏ qua các stage BT2, xuất event như Bài tập 1 |
 | `-f/--filter`, `-c/--count`, `-t/--timeout` | BPF filter; dừng sau N gói / N giây (live) |
-| `--skip-unknown` | Bỏ qua gói protocol không hỗ trợ thay vì ghi event `UNKNOWN` |
-| `-v/--verbose` | Log lỗi parse của từng gói ra stderr |
+| `--skip-unknown`, `--append`, `-v/--verbose` | Bỏ gói protocol không hỗ trợ; ghi nối file; log lỗi từng gói |
 
-Khi kết thúc, chương trình in thống kê (số gói, số event, số lỗi, phân bố protocol) ra stderr. File PCAP không tồn tại / sai định dạng hoặc thiếu quyền bắt live → in thông báo lỗi, exit code 1.
+Khi kết thúc, chương trình in thống kê ra stderr (số gói/event, lỗi, phân bố protocol, `preprocess_status`, số event bị drop, số flow và `end_reason`). Lỗi nguồn dữ liệu hoặc config sai → thông báo lỗi, exit code 1.
+
+## Cấu hình (`config.json`)
+
+Mọi ngưỡng đều cấu hình được; thứ tự ưu tiên: giá trị mặc định (`config.py`) < file `--config` < `--set`. Thời gian luôn tính theo **timestamp của packet** (không dùng đồng hồ hệ thống) nên chạy lại PCAP cho kết quả giống hệt.
+
+| Key | Mặc định | Ý nghĩa |
+|---|---|---|
+| `decoder.enabled` | `true` | Bật/tắt Decoder |
+| `decoder.max_body_bytes` | `65536` | Body/MIME part dài hơn bị cắt trước khi decode → `partial`, `truncated_for_decode` |
+| `preprocess.enabled` | `true` | Bật/tắt Preprocessor |
+| `preprocess.on_invalid` / `on_unsupported` | `mark` | `mark` (giữ, đánh dấu) hoặc `drop` (không vào Flow Tracker) |
+| `preprocess.log_dropped` | `true` | Vẫn ghi event bị drop ra `events.jsonl` |
+| `flow.enabled` | `true` | Bật/tắt Flow Tracker |
+| `flow.tcp_idle_timeout` / `udp_idle_timeout` | `300` / `60` | Giây không có gói → flow hết hạn |
+| `flow.closed_linger` | `5` | Giữ flow CLOSED/RESET thêm để nhận ACK cuối |
+| `flow.max_active_flows` | `100000` | Bảng flow đầy → evict flow lâu nhất không có gói |
+| `flow.portless` | `skip` | Gói không có port (ICMP...): `skip` = không tạo flow, `zero` = dùng port 0 |
+| `flow.sweep_interval` | `1` | Khoảng thời gian (packet time) tối thiểu giữa hai lần quét timeout |
 
 ## Cấu trúc thư mục
 
 ```
 .
-├── main.py              # CLI entrypoint: --interface, --pcap
-├── capture/             # live capture + đọc PCAP → RawPacket
-├── parsers/
-│   ├── network.py       # link layer + IPv4
-│   ├── transport.py     # TCP / UDP
-│   ├── app_detector.py  # nhận diện application protocol
-│   └── app/             # HTTP, DNS, SMTP parser
-├── core/                # IDSEvent, Pipeline, JsonLinesWriter
-├── tests/               # unit test (pytest)
-└── TEST/                # 12 test case chấm điểm (PCAP + output)
+├── main.py              # CLI: --interface / --pcap / --events
+├── config.py, config.json
+├── capture/             # BT1: live capture + đọc PCAP → RawPacket
+├── parsers/             # BT1: IPv4, TCP/UDP, app detector, HTTP/DNS/SMTP parser
+├── core/                # IDSEvent, Pipeline (BT1 + BT2 stages), JSONL reader/writer
+├── decoder/             # BT2: charset, URL/form, HTML entity, SMTP MIME
+├── preprocess/          # BT2: validator, normalizer
+├── flow/                # BT2: flow key, Flow, TCP state machine, FlowTracker
+├── tests/               # unit test (pytest); tests/bt2/ + tests/gen_pcaps_bt2.py
+└── TEST/                # test case chấm điểm: case_XX_* (BT1), bt2_TXX_* (BT2)
 ```
 
 ## Kiến trúc
@@ -57,8 +88,14 @@ Khi kết thúc, chương trình in thống kê (số gói, số event, số l�
 ```
 Raw Packet → Network Parser (IPv4) → Transport Parser (TCP/UDP)
 → Application Protocol Detector → Application Protocol Parser
-→ Normalized IDS Event → JSON Lines log
+→ Normalized IDS Event                                   (Bài tập 1)
+→ Decoder → Preprocessor → Flow/Connection Tracker       (Bài tập 2)
+→ events.jsonl + flows.jsonl
 ```
+
+Live capture và PCAP dùng **một pipeline duy nhất** (`core/pipeline.py`). Các stage BT2 chỉ làm việc trên event dạng dict, không import Scapy hay đụng raw packet; field gốc không bị ghi đè, kết quả ghi vào field mới. Mỗi stage có `try/except` riêng, lỗi ghi vào `decode_status` / `preprocess_status` / `reason`.
+
+## Bài tập 1 — Packet Capture & Parser
 
 ### Capture layer (`capture/`)
 
@@ -151,29 +188,88 @@ Mọi parser trả về `AppResult(data, error)`: `data` là dict JSON-serializa
 | `app_protocol`, `app_data` | `HTTP` / `DNS` / `SMTP` / `null` và dữ liệu đã parse |
 | `error` | Lỗi của mọi layer, dạng `"network: ...; http: ..."`, `null` nếu sạch |
 | `length`, `ip_protocol`, `ttl`, `tcp_seq`, `tcp_ack`, `tcp_window`, `payload_length`, `detected_by`, `source` | Thông tin bổ sung |
+| `ip_total_length` | Field *total length* của IPv4 (thêm ở BT2, dùng làm `byte_count` của flow) |
 | `payload_preview` | 128 byte đầu của payload **không thuộc HTTP/DNS/SMTP** (byte không in được hiển thị `\xNN`); `null` khi đã parse vào `app_data`, tránh lộ dữ liệu nhạy cảm như credential SMTP AUTH |
 
 ### JSON Lines logger (`core/logger.py`)
 
 `JsonLinesWriter(path, append=False)` (context manager): mỗi event là 1 dòng JSON (`ensure_ascii=False`, giữ nguyên tiếng Việt), `flush()` sau mỗi dòng để theo dõi live bằng `tail -f` và không mất dữ liệu khi Ctrl+C. `path="-"` ghi ra stdout.
 
+## Bài tập 2 — Decoder, Preprocessor & Flow Tracker
+
+### Decoder (`decoder/`)
+
+`decode_event(event, cfg, payload)` thêm `decoded`, `decode_status` (`ok` / `partial` / `failed` / `not_applicable`), `decode_errors`. Mỗi lớp encoding chỉ decode **một lần**; nếu sau đó vẫn còn `%XX` hoặc entity HTML thì đánh dấu `double_encoded: true` thay vì decode tiếp.
+
+| Module | Việc làm |
+|---|---|
+| `charset.py` | bytes → str: UTF-8 strict → charset khai báo trong header → UTF-8 `errors="replace"`; mọi fallback là `partial` kèm lý do |
+| `url_decoder.py` | Path: `unquote` (`+` giữ nguyên); query và body `x-www-form-urlencoded`: `parse_qs` (`+` = space) → `decoded.uri`, `query_params`, `form_params`; `app_data.uri` gốc giữ nguyên |
+| `html_decoder.py` | `html.unescape` cho body/param `text/html`, `text/plain`, form; không áp lên dữ liệu nhị phân |
+| `mime_decoder.py` | Nội dung SMTP sau `DATA`: bỏ dòng `.` cuối và dot-stuffing, tách MIME part, decode `base64` (tự bổ sung padding thiếu) / `quoted-printable` theo `Content-Transfer-Encoding`; encoding khác → `not_applicable`; mỗi part có `decode_status` riêng |
+
+Decoder nhận thêm byte gốc của payload từ pipeline để decode charset chính xác. Với input `--events` (không có byte gốc), decoder dùng text BT1 đã parse. SMTP chỉ decode **theo từng event** (không ghép email trải nhiều packet).
+
+### Preprocessor (`preprocess/`)
+
+- **Điền field thiếu** cho nhất quán: scalar → `null`, list (`tcp_flags`) → `[]`, dict (`app_data`) → `{}`.
+- **Validator** → `preprocess_status`:
+  - `invalid`: thiếu/hỏng field cốt lõi (`packet_id`, `timestamp`, `src_ip`, `dst_ip`, `protocol`), IP không parse được, timestamp không phải số hữu hạn ≥ 0, protocol ngoài TCP/UDP;
+  - `partial`: port thiếu hoặc ngoài `0–65535`, `tcp_flags` sai kiểu, có `error` từ BT1, decode `partial`/`failed`;
+  - `valid`: còn lại. Lý do ghi trong `reason`, vd `missing_field:dst_port`, `invalid_port:70000`.
+- **Normalizer** → `normalized` (không ghi đè field gốc): protocol/app_protocol viết hoa; IP dạng chuẩn của `ipaddress`; domain (DNS qname / HTTP Host) viết thường, bỏ dấu `.` cuối và port, IDNA cho tên non-ASCII; tên header HTTP viết thường; `uri_path` từ URI đã decode, gộp `//`, resolve `.`/`..` không vượt `/`; `timestamp_iso` (UTC).
+- **Policy** → `processing_action`: `valid` → `pass`, `partial` → `mark`, `invalid` → `preprocess.on_invalid` hoặc `on_unsupported` (`mark`/`drop`). Event `drop` không vào Flow Tracker.
+
+### Flow/Connection Tracker (`flow/`)
+
+- **Flow key** (`flow_key.py`): sắp xếp hai endpoint `(ip, port)` theo (phiên bản IP, IP dạng số, port) → `(PROTO, lo_ip, lo_port, hi_ip, hi_port)`; hai chiều A→B và B→A cho cùng key.
+- **`flow_id`** = `"{PROTO}-{sha1(key)[:12]}-{seq}"`: phần hash ổn định qua các lần chạy; `seq` tăng khi cùng 5-tuple mở phiên mới sau khi phiên cũ đã đóng/hết hạn.
+- **Endpoint A** = initiator: bên gửi SYN; nếu bắt giữa chừng hoặc UDP thì là nguồn của gói đầu tiên. `direction = forward` nếu gói do A gửi, ngược lại `backward`.
+- **TCP state machine** (`tcp_state.py`): `NEW` (SYN từ A) → `HANDSHAKE` (SYN/ACK từ B) → `ESTABLISHED` (ACK từ A, hoặc có data hai chiều) → `CLOSING` (FIN một phía) → `CLOSED` (FIN cả hai phía); `RST` ở bất kỳ trạng thái nào → `RESET`. Gói đầu không phải SYN → `ESTABLISHED` + `notes: ["midstream"]`. SYN mới trên flow `CLOSED`/`RESET` → xuất flow cũ, tạo flow mới. UDP: `ACTIVE` → `EXPIRED`.
+- **FlowTracker** (`tracker.py`): bảng flow active nằm trong instance; mỗi gói quét timeout theo timestamp packet; flow hết hạn/đóng/bị evict được **ghi ra `flows.jsonl` và xóa khỏi bảng** (`end_reason`: `idle_timeout`, `fin`, `rst`, `evicted`); kết thúc PCAP hoặc Ctrl+C → `flush()` với `end_reason = end_of_capture`.
+- **Thống kê mỗi flow:** `packet_count`, `byte_count`, `fwd_*`/`bwd_*`, `syn/ack/fin/rst_count` (số gói mang cờ), `start_time`, `last_seen`, `duration`, `state`, `end_reason`, `notes`, `application_protocol` (app protocol đầu tiên khác `null`).
+- **Định nghĩa `byte_count`:** tổng field IPv4 *total length* (`ip_total_length`) của các gói — gồm IP header + TCP/UDP header + payload, không tính header Ethernet/padding, nên không phụ thuộc kiểu link layer.
+
+### Event sau BT2
+
+Giữ nguyên mọi field BT1, thêm: `decoded`, `decode_status`, `decode_errors`, `preprocess_status`, `processing_action`, `reason`, `normalized`, `flow_id`, `direction`.
+
 ## Test case
 
-12 test case trong [`TEST/`](TEST/README.md) (TCP handshake, TCP payload, UDP, HTTP GET/POST/response, DNS query/response, SMTP command/response, unknown protocol, malformed packet). Mỗi case gồm script tạo PCAP bằng Scapy, file PCAP, output JSON Lines và bảng so sánh kết quả mong đợi / thực tế. Chạy lại toàn bộ:
+| Bài | Thư mục | Nội dung | Chạy / kiểm tra |
+|---|---|---|---|
+| BT1 | [`TEST/case_XX_*`](TEST/README.md) | 12 case: TCP handshake/payload, UDP, HTTP GET/POST/response, DNS query/response, SMTP command/response, unknown, malformed | `bash TEST/run_all.sh` — chạy `--bt1-only` trên PCAP đã commit và so với output BT1 (không ghi đè) |
+| BT2 | `TEST/bt2_TXX_*` | 14 case T01–T14 (bảng dưới) | `bash TEST/run_bt2.sh [T01 ...]` — sinh input bằng `tests/gen_pcaps_bt2.py` rồi ghi `events.jsonl` + `flows.jsonl` |
 
-```bash
-bash TEST/run_all.sh
-```
+| ID | Nội dung | ID | Nội dung |
+|---|---|---|---|
+| T01 | HTTP URL decode | T08 | Bidirectional (cùng `flow_id`, direction đúng) |
+| T02 | HTML entity | T09 | TCP close: FIN → CLOSED, RST → RESET |
+| T03 | SMTP Base64 / QP | T10 | UDP DNS query/response → 1 flow |
+| T04 | Byte không hợp lệ | T11 | Nhiều flow đồng thời không gộp nhầm |
+| T05 | Normalization | T12 | Idle timeout: export + xóa khỏi bảng |
+| T06 | Thiếu field | T13 | Thống kê packet/byte/flag/duration |
+| T07 | TCP handshake → ESTABLISHED | T14 | Event sai định dạng, policy mark/drop |
+
+Mỗi thư mục BT2 có input (`input.pcap` hoặc `input_events.jsonl`), output và `README.md` (input, lệnh chạy, mong đợi vs thực tế). Unit test tương ứng: `tests/bt2/test_tXX_*.py` — so sánh giá trị cụ thể và so với output đã commit.
 
 ## Unit test
 
 ```bash
-python -m pytest tests
+python -m pytest tests            # toàn bộ (BT1 + BT2 + regression BT1)
+python -m pytest tests/bt2 -v     # chỉ BT2
 ```
 
 ## AI Usage
 
+**Bài tập 1**
 - **Công cụ:** Claude Code (Claude Opus).
-- **Mục đích:** hỗ trợ thiết kế kiến trúc, sinh code, viết unit test, tạo PCAP mẫu cho test case và rà soát lỗi.
-- **Phần code có dùng AI:** `capture/`, `parsers/`, `core/`, `main.py`, `tests/` và các script `TEST/*/generate.py`, `TEST/run_all.sh`.
-- Sinh viên đã đọc, chạy kiểm thử và giải thích được toàn bộ code nộp.
+- **Mục đích:** hỗ trợ thiết kế kiến trúc, sinh code, viết unit test, tạo PCAP mẫu và rà soát lỗi.
+- **Phần code có dùng AI:** `capture/`, `parsers/`, `core/`, `main.py`, `tests/`, script trong `TEST/case_*`.
+
+**Bài tập 2**
+- **Công cụ:** Claude Code (Claude Opus).
+- **Mục đích:** hỗ trợ thiết kế Decoder/Preprocessor/Flow Tracker, sinh code, viết test case và script sinh PCAP, rà soát lỗi phát hiện khi test.
+- **Phần code có dùng AI:** `config.py`, `decoder/`, `preprocess/`, `flow/`, phần mở rộng trong `core/` và `main.py`, `tests/bt2/`, `tests/gen_pcaps_bt2.py`, script trong `TEST/`.
+
+Sinh viên đã đọc, chạy kiểm thử và giải thích được toàn bộ code nộp.
