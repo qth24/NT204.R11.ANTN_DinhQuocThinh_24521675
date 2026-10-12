@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from unittest import mock
 
+import pytest
 from scapy.layers.dns import DNS, DNSQR, DNSRR
 from scapy.layers.inet import ICMP, IP, TCP, UDP
 from scapy.layers.inet6 import IPv6
@@ -206,3 +207,50 @@ def test_bt2_stages_and_drop_policy() -> None:
     stats = Pipeline(config=cfg).run_bt2(packets, events.append)
     assert stats.written == 1 and stats.dropped == 1
     assert [e["packet_id"] for e in events] == [1]
+
+
+def test_bt2_flow_tracking_end_to_end() -> None:
+    packets = [
+        _raw(_tcp(40000, 80, "S"), ts=1.0),
+        _raw(
+            Ether()
+            / IP(src=SERVER, dst=CLIENT)
+            / TCP(sport=80, dport=40000, flags="SA"),
+            ts=1.1,
+        ),
+        _raw(_tcp(40000, 80, "A"), ts=1.2),
+    ]
+    events: list[dict] = []
+    flows: list[dict] = []
+    stats = Pipeline().run_bt2(packets, events.append, flows.append)
+
+    assert len({e["flow_id"] for e in events}) == 1
+    assert [e["direction"] for e in events] == ["forward", "backward", "forward"]
+    assert stats.flows_exported == 1
+    (flow,) = flows
+    assert flow["state"] == "ESTABLISHED"
+    assert flow["end_reason"] == "end_of_capture"
+    assert flow["packet_count"] == 3
+    assert flow["byte_count"] == 120  # 3 x (20B IP + 20B TCP)
+
+
+def test_dropped_events_do_not_reach_tracker() -> None:
+    from config import Config, PreprocessConfig
+
+    cfg = Config(preprocess=PreprocessConfig(on_unsupported="drop"))
+    icmp = _raw(Ether() / IP(src=CLIENT, dst=SERVER) / ICMP())
+    events: list[dict] = []
+    Pipeline(config=cfg).run_bt2([icmp], events.append, lambda r: None)
+    assert events[0]["processing_action"] == "drop"
+    assert events[0]["flow_id"] is None
+
+
+def test_flows_flushed_when_interrupted() -> None:
+    def source():
+        yield _raw(_tcp(40000, 80, "S"))
+        raise KeyboardInterrupt
+
+    flows: list[dict] = []
+    with pytest.raises(KeyboardInterrupt):
+        Pipeline().run_bt2(source(), lambda e: None, flows.append)
+    assert [f["end_reason"] for f in flows] == ["end_of_capture"]

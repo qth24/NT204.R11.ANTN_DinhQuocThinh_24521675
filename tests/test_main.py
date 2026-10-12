@@ -93,3 +93,20 @@ def test_invalid_config_override_returns_error(
     argv = ["--pcap", str(pcap_file), "-o", str(out), "--set", "flow.nope=1"]
     assert main.main(argv) == 1
     assert "unknown config key" in capsys.readouterr().err
+
+
+def test_flow_output_file(tmp_path: Path, pcap_file: Path) -> None:
+    out, flows = tmp_path / "events.jsonl", tmp_path / "flows.jsonl"
+    assert (
+        main.main(
+            ["--pcap", str(pcap_file), "-o", str(out), "--flow-output", str(flows)]
+        )
+        == 0
+    )
+    records = _read(flows)
+    # SYN and HTTP GET both use Scapy default sport 20 -> same 5-tuple, one flow
+    assert len(records) == 1
+    assert records[0]["protocol"] == "TCP"
+    assert {e["flow_id"] for e in _read(out) if e["protocol"] == "TCP"} == {
+        records[0]["flow_id"]
+    }

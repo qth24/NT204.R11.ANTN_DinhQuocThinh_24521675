@@ -4,5 +4,6 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 /output.jsonl
+/flows.jsonl
 CLAUDE.md
 .claude/

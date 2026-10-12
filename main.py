@@ -1,11 +1,13 @@
 """CLI entrypoint: capture packets (live or PCAP) and write IDS events as JSONL.
 
-By default every event goes through the BT2 stages (Decoder, ...);
-``--bt1-only`` reproduces the plain BT1 output.
+By default every event goes through the BT2 stages (Decoder, Preprocessor,
+Flow Tracker): events are written to --output and finished flows to
+--flow-output. ``--bt1-only`` reproduces the plain BT1 output.
 
 Examples:
     sudo python main.py --interface eth0 --filter "tcp port 80"
-    python main.py --pcap test.pcap --output events.jsonl --config config.json
+    python main.py --pcap test.pcap --output events.jsonl \\
+        --flow-output flows.jsonl --config config.json
     python main.py --pcap test.pcap --set decoder.max_body_bytes=4096
     python main.py --pcap test.pcap --bt1-only
 """
@@ -37,7 +39,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default="output.jsonl",
         help="JSON Lines output file, '-' for stdout (default: output.jsonl)",
     )
-    parser.add_argument("--append", action="store_true", help="append to --output")
+    parser.add_argument(
+        "--flow-output",
+        default="flows.jsonl",
+        help="JSON Lines file for finished flows (default: flows.jsonl)",
+    )
+    parser.add_argument(
+        "--append", action="store_true", help="append to --output / --flow-output"
+    )
     parser.add_argument("-f", "--filter", help="BPF filter for live capture")
     parser.add_argument(
         "-c", "--count", type=int, default=0, help="live: stop after N packets"
@@ -103,7 +112,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             if args.bt1_only:
                 stats = pipeline.run(source, writer.write)
             else:
-                stats = pipeline.run_bt2(source, writer.write)
+                with JsonLinesWriter(args.flow_output, append=args.append) as flows:
+                    stats = pipeline.run_bt2(source, writer.write, flows.write)
     except CaptureError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -111,14 +121,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"error: cannot write {args.output}: {exc}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:
-        print("\ninterrupted, events so far are saved", file=sys.stderr)
+        print("\ninterrupted, events and flows so far are saved", file=sys.stderr)
         return 130
 
-    _print_summary(stats, args.output)
+    _print_summary(stats, args.output, None if args.bt1_only else args.flow_output)
     return 0
 
 
-def _print_summary(stats: PipelineStats, output: str) -> None:
+def _print_summary(stats: PipelineStats, output: str, flow_output: str | None) -> None:
     lines = [
         f"packets processed : {stats.processed}",
         f"events written    : {stats.written} -> {output}",
@@ -131,6 +141,11 @@ def _print_summary(stats: PipelineStats, output: str) -> None:
         lines += [
             "preprocess status : " + _format_counter(stats.by_preprocess_status),
             f"dropped           : {stats.dropped}",
+        ]
+    if flow_output is not None:
+        lines += [
+            f"flows exported    : {stats.flows_exported} -> {flow_output}",
+            "flow end reasons  : " + _format_counter(stats.flow_end_reasons),
         ]
     print("\n".join(lines), file=sys.stderr)
 

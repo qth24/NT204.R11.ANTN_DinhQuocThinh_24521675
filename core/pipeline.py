@@ -12,7 +12,7 @@ sources yield ``RawPacket`` objects.
 
 BT2 stages run on the event as a dict (``enrich``), after the BT1 parsers:
 
-    IDSEvent.to_dict() -> decode_event -> preprocess_event
+    IDSEvent.to_dict() -> decode_event -> preprocess_event -> FlowTracker
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ from capture.raw_packet import RawPacket
 from config import Config
 from core.event import IDSEvent
 from decoder import decode_event
+from flow.tracker import FlowTracker
 from parsers.app import AppResult
 from parsers.app.dns_parser import parse_dns
 from parsers.app.http_parser import parse_http
@@ -54,6 +55,8 @@ class PipelineStats:
     by_protocol: Counter[str] = field(default_factory=Counter)
     by_app_protocol: Counter[str] = field(default_factory=Counter)
     by_preprocess_status: Counter[str] = field(default_factory=Counter)
+    flows_exported: int = 0
+    flow_end_reasons: Counter[str] = field(default_factory=Counter)
 
 
 class Pipeline:
@@ -71,7 +74,13 @@ class Pipeline:
         self.skip_unknown = skip_unknown
         self.config = config or Config()
         # The only mutable state: packet counter used for packet_id.
+        # (The flow table lives inside the FlowTracker instance.)
         self._packet_counter = 0
+        self._flows_exported = 0
+        self._flow_end_reasons: Counter[str] = Counter()
+        self.tracker = (
+            FlowTracker(self.config.flow) if self.config.flow.enabled else None
+        )
 
     def process(self, raw: RawPacket) -> IDSEvent | None:
         """BT1: parse one packet. Returns None only when skipped by config.
@@ -84,7 +93,9 @@ class Pipeline:
             return None
         return event
 
-    def process_bt2(self, raw: RawPacket) -> dict[str, Any] | None:
+    def process_bt2(
+        self, raw: RawPacket, flow_sink: Callable[[dict[str, Any]], None] | None = None
+    ) -> dict[str, Any] | None:
         """BT1 parsing followed by the BT2 stages; returns the event dict.
 
         None when the packet is skipped (``skip_unknown``) or dropped by the
@@ -93,19 +104,55 @@ class Pipeline:
         event, payload = self._parse(raw)
         if self.skip_unknown and event.protocol == "UNKNOWN":
             return None
-        return self.enrich(event.to_dict(), payload)
+        return self.enrich(event.to_dict(), payload, flow_sink)
 
     def enrich(
-        self, event: dict[str, Any], payload: bytes | None = None
+        self,
+        event: dict[str, Any],
+        payload: bytes | None = None,
+        flow_sink: Callable[[dict[str, Any]], None] | None = None,
     ) -> dict[str, Any] | None:
         """Run the BT2 stages on one event dict (from a packet or a JSONL file).
 
         ``payload`` is the raw application payload when the event comes from
         a packet; it lets the decoder see the original bytes.
+        Flows exported meanwhile (expired/closed/evicted) go to ``flow_sink``.
         Returns None when the event is dropped and not logged.
         """
         event = decode_event(event, self.config.decoder, payload)
-        return preprocess_event(event, self.config.preprocess)
+        result = preprocess_event(event, self.config.preprocess)
+        event["flow_id"] = None
+        event["direction"] = None
+        if result is None or result.get("processing_action") == "drop":
+            return result  # dropped events never reach the flow tracker
+        if self.tracker is not None:
+            try:
+                exported = self.tracker.process(event)
+            except Exception as exc:  # must not stop the pipeline
+                logger.exception(
+                    "flow tracker failed on packet %s", event.get("packet_id")
+                )
+                event.setdefault("reason", []).append(f"flow_tracker_error:{exc}")
+                exported = []
+            for record in exported:
+                self._flow_out(record, flow_sink)
+        return event
+
+    def flush_flows(
+        self, flow_sink: Callable[[dict[str, Any]], None] | None = None
+    ) -> None:
+        """Export every flow still active (end of capture / Ctrl+C)."""
+        if self.tracker is not None:
+            for record in self.tracker.flush():
+                self._flow_out(record, flow_sink)
+
+    def _flow_out(
+        self, record: dict[str, Any], flow_sink: Callable[[dict[str, Any]], None] | None
+    ) -> None:
+        self._flows_exported += 1
+        self._flow_end_reasons[record["end_reason"]] += 1
+        if flow_sink is not None:
+            flow_sink(record)
 
     def _parse(self, raw: RawPacket) -> tuple[IDSEvent, bytes]:
         """Run the BT1 parsers; returns the event and the application payload."""
@@ -158,17 +205,26 @@ class Pipeline:
         self,
         source: Iterable[RawPacket],
         sink: Callable[[dict[str, Any]], None],
+        flow_sink: Callable[[dict[str, Any]], None] | None = None,
     ) -> PipelineStats:
-        """BT2: process every packet through all stages, events go to ``sink``."""
+        """BT2: every packet through all stages; events -> ``sink``, flows -> ``flow_sink``.
+
+        Remaining flows are flushed even if the loop is interrupted (Ctrl+C).
+        """
         stats = PipelineStats()
-        for raw in source:
-            stats.processed += 1
-            parsed, payload = self._parse(raw)
-            if self.skip_unknown and parsed.protocol == "UNKNOWN":
-                stats.skipped += 1
-                continue
-            event = self.enrich(parsed.to_dict(), payload)
-            self._emit(event, stats, sink)
+        try:
+            for raw in source:
+                stats.processed += 1
+                parsed, payload = self._parse(raw)
+                if self.skip_unknown and parsed.protocol == "UNKNOWN":
+                    stats.skipped += 1
+                    continue
+                event = self.enrich(parsed.to_dict(), payload, flow_sink)
+                self._emit(event, stats, sink)
+        finally:
+            self.flush_flows(flow_sink)
+            stats.flows_exported = self._flows_exported
+            stats.flow_end_reasons = Counter(self._flow_end_reasons)
         return stats
 
     def _emit(
