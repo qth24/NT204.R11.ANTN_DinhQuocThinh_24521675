@@ -22,10 +22,39 @@ from __future__ import annotations
 import ipaddress
 import math
 import re
+from dataclasses import fields
 from datetime import datetime, timezone
 from typing import Any
 
+from core.event import IDSEvent
+
 _MULTI_SLASH = re.compile(r"/{2,}")
+
+# Every field of a BT1 event, with the "empty" value of its type:
+# list -> [], dict -> {}, anything else (scalar) -> None
+_EMPTY_BY_TYPE = {"list": list, "dict": dict}
+EVENT_FIELDS: dict[str, type | None] = {
+    f.name: next(
+        (v for k, v in _EMPTY_BY_TYPE.items() if str(f.type).startswith(k)), None
+    )
+    for f in fields(IDSEvent)
+}
+
+
+def fill_missing_fields(event: dict[str, Any]) -> list[str]:
+    """Give every missing BT1 field the same "empty" value everywhere.
+
+    Missing scalar -> None, missing list -> [], missing dict -> {}.
+    A list/dict field that is None counts as missing. Values that are present
+    (even with a wrong type) are left as they are for the validator to report.
+    Returns the names of the fields that were filled.
+    """
+    filled = []
+    for name, empty in EVENT_FIELDS.items():
+        if event.get(name) is None and (name not in event or empty is not None):
+            event[name] = empty() if empty is not None else None
+            filled.append(name)
+    return filled
 
 
 def normalize_event(event: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
@@ -94,10 +123,10 @@ def normalize_domain(value: Any) -> tuple[str | None, str | None]:
         return host, f"idna_error:{host}"
 
 
-def normalize_headers(headers: Any) -> dict[str, str] | None:
-    """Header names lowercased and trimmed; values trimmed."""
+def normalize_headers(headers: Any) -> dict[str, str]:
+    """Header names lowercased and trimmed; values trimmed ({} when missing)."""
     if not isinstance(headers, dict):
-        return None
+        return {}
     result: dict[str, str] = {}
     for name, value in headers.items():
         key = str(name).strip().lower()

@@ -1,7 +1,8 @@
 """Preprocessor stage (BT2): validate and normalize IDS events.
 
 Input:  event dict after the Decoder.
-Output: the same dict with (original fields are never changed):
+Output: the same dict with (values present in the input are never changed;
+        missing BT1 fields are added as None / [] / {} by their type):
 
     "preprocess_status": "valid" | "partial" | "invalid"
     "processing_action": "pass" | "mark" | "drop"
@@ -23,7 +24,7 @@ from __future__ import annotations
 from typing import Any
 
 from config import PreprocessConfig
-from preprocess.normalizer import normalize_event
+from preprocess.normalizer import fill_missing_fields, normalize_event
 from preprocess.validator import ValidationResult, validate_event
 
 
@@ -41,6 +42,11 @@ def preprocess_event(
         return event
 
     # Each step has its own guard: a bug in one never hides the other.
+    step_errors: list[str] = []
+    try:
+        fill_missing_fields(event)
+    except Exception as exc:  # noqa: BLE001 - must not stop the pipeline
+        step_errors.append(f"fill_defaults_error:{exc}")
     try:
         validation = validate_event(event)
     except Exception as exc:  # noqa: BLE001 - must not stop the pipeline
@@ -49,6 +55,7 @@ def preprocess_event(
         normalized, norm_reasons = normalize_event(event)
     except Exception as exc:  # noqa: BLE001 - must not stop the pipeline
         normalized, norm_reasons = {}, [f"normalizer_error:{exc}"]
+    norm_reasons = step_errors + norm_reasons
 
     status = validation.status
     if status == "valid" and norm_reasons:

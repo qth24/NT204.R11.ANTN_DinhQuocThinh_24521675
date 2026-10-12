@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from preprocess.normalizer import (
+    fill_missing_fields,
     normalize_domain,
     normalize_event,
     normalize_headers,
@@ -68,7 +69,8 @@ def test_normalize_path(path: str, expected: str) -> None:
 def test_headers_lowercase_and_trimmed() -> None:
     headers = {" Content-Type ": " text/html ", "HOST": "a", "host": "b"}
     assert normalize_headers(headers) == {"content-type": "text/html", "host": "a, b"}
-    assert normalize_headers("not a dict") is None
+    assert normalize_headers("not a dict") == {}
+    assert normalize_headers(None) == {}
 
 
 def test_ip_and_timestamp() -> None:
@@ -134,3 +136,20 @@ def test_empty_event_gives_consistent_nulls() -> None:
         "timestamp": None,
         "timestamp_iso": None,
     }
+
+
+def test_fill_missing_fields() -> None:
+    event = {
+        "packet_id": 1,
+        "tcp_flags": None,
+        "app_data": None,
+        "error": None,
+        "src_port": "x",
+    }
+    filled = fill_missing_fields(event)
+    assert event["tcp_flags"] == [] and event["app_data"] == {}
+    assert event["dst_port"] is None and event["app_protocol"] is None
+    assert event["src_port"] == "x"  # present (wrong type): kept for the validator
+    assert event["error"] is None and "error" not in filled  # present scalar None
+    assert "tcp_flags" in filled and "dst_ip" in filled
+    assert fill_missing_fields(event) == []  # idempotent
