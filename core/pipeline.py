@@ -12,7 +12,7 @@ sources yield ``RawPacket`` objects.
 
 BT2 stages run on the event as a dict (``enrich``), after the BT1 parsers:
 
-    IDSEvent.to_dict() -> decode_event
+    IDSEvent.to_dict() -> decode_event -> preprocess_event
 """
 
 from __future__ import annotations
@@ -34,6 +34,7 @@ from parsers.app.smtp_parser import parse_smtp
 from parsers.app_detector import detect_app_protocol
 from parsers.network import NetworkLayer, parse_network
 from parsers.transport import TransportLayer, parse_transport
+from preprocess import preprocess_event
 
 logger = logging.getLogger(__name__)
 
@@ -48,9 +49,11 @@ class PipelineStats:
     processed: int = 0
     written: int = 0
     skipped: int = 0
+    dropped: int = 0
     with_error: int = 0
     by_protocol: Counter[str] = field(default_factory=Counter)
     by_app_protocol: Counter[str] = field(default_factory=Counter)
+    by_preprocess_status: Counter[str] = field(default_factory=Counter)
 
 
 class Pipeline:
@@ -82,7 +85,11 @@ class Pipeline:
         return event
 
     def process_bt2(self, raw: RawPacket) -> dict[str, Any] | None:
-        """BT1 parsing followed by the BT2 stages; returns the event dict."""
+        """BT1 parsing followed by the BT2 stages; returns the event dict.
+
+        None when the packet is skipped (``skip_unknown``) or dropped by the
+        preprocessor without logging.
+        """
         event, payload = self._parse(raw)
         if self.skip_unknown and event.protocol == "UNKNOWN":
             return None
@@ -90,13 +97,15 @@ class Pipeline:
 
     def enrich(
         self, event: dict[str, Any], payload: bytes | None = None
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | None:
         """Run the BT2 stages on one event dict (from a packet or a JSONL file).
 
         ``payload`` is the raw application payload when the event comes from
         a packet; it lets the decoder see the original bytes.
+        Returns None when the event is dropped and not logged.
         """
-        return decode_event(event, self.config.decoder, payload)
+        event = decode_event(event, self.config.decoder, payload)
+        return preprocess_event(event, self.config.preprocess)
 
     def _parse(self, raw: RawPacket) -> tuple[IDSEvent, bytes]:
         """Run the BT1 parsers; returns the event and the application payload."""
@@ -154,13 +163,27 @@ class Pipeline:
         stats = PipelineStats()
         for raw in source:
             stats.processed += 1
-            event = self.process_bt2(raw)
-            if event is None:
+            parsed, payload = self._parse(raw)
+            if self.skip_unknown and parsed.protocol == "UNKNOWN":
                 stats.skipped += 1
                 continue
-            _count(stats, event)
-            sink(event)
+            event = self.enrich(parsed.to_dict(), payload)
+            self._emit(event, stats, sink)
         return stats
+
+    def _emit(
+        self,
+        event: dict[str, Any] | None,
+        stats: PipelineStats,
+        sink: Callable[[dict[str, Any]], None],
+    ) -> None:
+        """Count an enriched event and write it (dropped ones only if logged)."""
+        if event is None or event.get("processing_action") == "drop":
+            stats.dropped += 1
+            if event is None:
+                return
+        _count(stats, event)
+        sink(event)
 
     # --- one method per layer, each with its own try/except ---------------
 
@@ -228,6 +251,8 @@ def _count(stats: PipelineStats, event: dict[str, Any]) -> None:
         stats.by_app_protocol[event["app_protocol"]] += 1
     if event.get("error"):
         stats.with_error += 1
+    if event.get("preprocess_status"):
+        stats.by_preprocess_status[event["preprocess_status"]] += 1
 
 
 def _preview(payload: bytes) -> str | None:

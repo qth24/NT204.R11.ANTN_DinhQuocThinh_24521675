@@ -127,6 +127,11 @@ def _print_summary(stats: PipelineStats, output: str) -> None:
         "protocols         : " + _format_counter(stats.by_protocol),
         "app protocols     : " + _format_counter(stats.by_app_protocol),
     ]
+    if stats.by_preprocess_status or stats.dropped:
+        lines += [
+            "preprocess status : " + _format_counter(stats.by_preprocess_status),
+            f"dropped           : {stats.dropped}",
+        ]
     print("\n".join(lines), file=sys.stderr)
 
 

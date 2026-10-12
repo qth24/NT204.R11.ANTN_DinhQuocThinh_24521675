@@ -181,3 +181,28 @@ def test_smtp_auth_credentials_do_not_leak() -> None:
     event = Pipeline().process(_raw(_tcp(40000, 25, "PA", payload)))
     assert event.app_data["auth_mechanism"] == "PLAIN"
     assert "AGFsaWNl" not in json.dumps(event.to_dict())
+
+
+def test_bt2_stages_and_drop_policy() -> None:
+    from config import Config, PreprocessConfig
+
+    packets = [
+        _raw(
+            _tcp(40000, 80, "PA", b"GET /a%20b HTTP/1.1\r\nHost: Example.COM\r\n\r\n")
+        ),
+        _raw(Ether() / ARP()),
+    ]
+    events: list[dict] = []
+    stats = Pipeline().run_bt2(packets, events.append)
+    assert stats.written == 2 and stats.dropped == 0
+    http, arp = events
+    assert http["decoded"]["uri"] == "/a b"
+    assert http["normalized"]["domain"] == "example.com"
+    assert http["preprocess_status"] == "valid"
+    assert arp["preprocess_status"] == "invalid"
+
+    cfg = Config(preprocess=PreprocessConfig(on_unsupported="drop", log_dropped=False))
+    events.clear()
+    stats = Pipeline(config=cfg).run_bt2(packets, events.append)
+    assert stats.written == 1 and stats.dropped == 1
+    assert [e["packet_id"] for e in events] == [1]
