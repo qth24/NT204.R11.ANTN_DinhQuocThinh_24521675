@@ -110,3 +110,41 @@ def test_flow_output_file(tmp_path: Path, pcap_file: Path) -> None:
     assert {e["flow_id"] for e in _read(out) if e["protocol"] == "TCP"} == {
         records[0]["flow_id"]
     }
+
+
+def test_events_jsonl_input(tmp_path: Path) -> None:
+    events_in = tmp_path / "in.jsonl"
+    events_in.write_text(
+        json.dumps(
+            {
+                "packet_id": 1,
+                "timestamp": 10.0,
+                "src_ip": "10.0.0.1",
+                "dst_ip": "10.0.0.2",
+                "protocol": "udp",
+                "src_port": 5000,
+                "dst_port": 53,
+                "ip_total_length": 60,
+            }
+        )
+        + "\n{broken json\n[1, 2]\n\n",
+        encoding="utf-8",
+    )
+    out, flows = tmp_path / "out.jsonl", tmp_path / "flows.jsonl"
+    argv = ["--events", str(events_in), "-o", str(out), "--flow-output", str(flows)]
+    assert main.main(argv) == 0
+
+    events = _read(out)
+    assert len(events) == 3
+    assert events[0]["preprocess_status"] == "valid"
+    assert events[0]["flow_id"].startswith("UDP-")
+    assert "invalid JSON" in events[1]["error"]
+    assert "not a JSON object" in events[2]["error"]
+    assert all(e["preprocess_status"] == "invalid" for e in events[1:])
+    assert _read(flows)[0]["byte_count"] == 60
+
+
+def test_events_with_bt1_only_is_rejected(tmp_path: Path) -> None:
+    events_in = tmp_path / "in.jsonl"
+    events_in.write_text("{}\n", encoding="utf-8")
+    assert main.main(["--events", str(events_in), "--bt1-only", "-o", "-"]) == 1

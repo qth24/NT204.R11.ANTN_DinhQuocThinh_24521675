@@ -227,6 +227,24 @@ class Pipeline:
             stats.flow_end_reasons = Counter(self._flow_end_reasons)
         return stats
 
+    def run_events(
+        self,
+        events: Iterable[dict[str, Any]],
+        sink: Callable[[dict[str, Any]], None],
+        flow_sink: Callable[[dict[str, Any]], None] | None = None,
+    ) -> PipelineStats:
+        """BT2 stages on already-parsed events (e.g. a JSONL file), no packets."""
+        stats = PipelineStats()
+        try:
+            for event in events:
+                stats.processed += 1
+                self._emit(self.enrich(event, None, flow_sink), stats, sink)
+        finally:
+            self.flush_flows(flow_sink)
+            stats.flows_exported = self._flows_exported
+            stats.flow_end_reasons = Counter(self._flow_end_reasons)
+        return stats
+
     def _emit(
         self,
         event: dict[str, Any] | None,

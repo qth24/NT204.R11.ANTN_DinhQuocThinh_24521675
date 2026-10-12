@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Iterator
 from types import TracebackType
 from typing import IO, Any
 
@@ -55,6 +56,28 @@ class JsonLinesWriter:
         self._file.write(line + "\n")
         self._file.flush()
         self.count += 1
+
+
+def read_jsonl(path: str) -> Iterator[dict[str, Any]]:
+    """Yield the events of a JSON Lines file (input of ``--events``).
+
+    Never raises on bad content: a line that is not a JSON object becomes an
+    event with only an ``error`` field, which the Preprocessor then reports
+    as invalid. Blank lines are skipped.
+    """
+    with open(path, encoding="utf-8", errors="replace") as file:
+        for number, line in enumerate(file, start=1):
+            if not line.strip():
+                continue
+            try:
+                value = json.loads(line)
+            except json.JSONDecodeError as exc:
+                yield {"error": f"input line {number}: invalid JSON ({exc.msg})"}
+                continue
+            if isinstance(value, dict):
+                yield value
+            else:
+                yield {"error": f"input line {number}: not a JSON object"}
 
 
 def _fallback(value: Any) -> Any:

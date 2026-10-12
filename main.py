@@ -10,6 +10,7 @@ Examples:
         --flow-output flows.jsonl --config config.json
     python main.py --pcap test.pcap --set decoder.max_body_bytes=4096
     python main.py --pcap test.pcap --bt1-only
+    python main.py --events events_in.jsonl -o events.jsonl   # BT2 stages only
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ from collections.abc import Iterable, Sequence
 
 from capture import CaptureError, RawPacket, live_packets, read_pcap
 from config import ConfigError, load_config
-from core.logger import JsonLinesWriter
+from core.logger import JsonLinesWriter, read_jsonl
 from core.pipeline import Pipeline, PipelineStats
 
 
@@ -33,6 +34,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("-i", "--interface", help="capture live from this interface")
     source.add_argument("-r", "--pcap", help="read packets from a .pcap/.pcapng file")
+    source.add_argument(
+        "-e",
+        "--events",
+        help="read already-parsed events from a JSON Lines file (BT2 stages only)",
+    )
     parser.add_argument(
         "-o",
         "--output",
@@ -94,8 +100,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"error: config: {exc}", file=sys.stderr)
         return 1
 
+    if args.events and args.bt1_only:
+        print("error: --events needs the BT2 stages (drop --bt1-only)", file=sys.stderr)
+        return 1
+
     source: Iterable[RawPacket]
-    if args.pcap:
+    if args.events:
+        source = []  # not used: events are read in run_events below
+    elif args.pcap:
         source = read_pcap(args.pcap)
     else:
         source = live_packets(
@@ -113,7 +125,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 stats = pipeline.run(source, writer.write)
             else:
                 with JsonLinesWriter(args.flow_output, append=args.append) as flows:
-                    stats = pipeline.run_bt2(source, writer.write, flows.write)
+                    if args.events:
+                        stats = pipeline.run_events(
+                            read_jsonl(args.events), writer.write, flows.write
+                        )
+                    else:
+                        stats = pipeline.run_bt2(source, writer.write, flows.write)
     except CaptureError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
