@@ -1,8 +1,13 @@
 """CLI entrypoint: capture packets (live or PCAP) and write IDS events as JSONL.
 
+By default every event goes through the BT2 stages (Decoder, ...);
+``--bt1-only`` reproduces the plain BT1 output.
+
 Examples:
     sudo python main.py --interface eth0 --filter "tcp port 80"
-    python main.py --pcap test.pcap --output events.jsonl
+    python main.py --pcap test.pcap --output events.jsonl --config config.json
+    python main.py --pcap test.pcap --set decoder.max_body_bytes=4096
+    python main.py --pcap test.pcap --bt1-only
 """
 
 from __future__ import annotations
@@ -13,6 +18,7 @@ import sys
 from collections.abc import Iterable, Sequence
 
 from capture import CaptureError, RawPacket, live_packets, read_pcap
+from config import ConfigError, load_config
 from core.logger import JsonLinesWriter
 from core.pipeline import Pipeline, PipelineStats
 
@@ -47,6 +53,19 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="log every parse error"
     )
+    parser.add_argument("--config", help="BT2 config file (.json, or .yaml)")
+    parser.add_argument(
+        "--set",
+        action="append",
+        default=[],
+        metavar="SECTION.KEY=VALUE",
+        help="override one config value, e.g. flow.tcp_idle_timeout=30 (repeatable)",
+    )
+    parser.add_argument(
+        "--bt1-only",
+        action="store_true",
+        help="skip the BT2 stages and write plain BT1 events",
+    )
     return parser
 
 
@@ -60,6 +79,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     # Scapy prints harmless warnings (e.g. "MAC address not found") on import.
     logging.getLogger("scapy").setLevel(logging.ERROR)
 
+    try:
+        config = load_config(args.config, args.set)
+    except ConfigError as exc:
+        print(f"error: config: {exc}", file=sys.stderr)
+        return 1
+
     source: Iterable[RawPacket]
     if args.pcap:
         source = read_pcap(args.pcap)
@@ -71,11 +96,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             timeout=args.timeout,
         )
 
-    pipeline = Pipeline(skip_unknown=args.skip_unknown)
+    pipeline = Pipeline(skip_unknown=args.skip_unknown, config=config)
     stats = PipelineStats()
     try:
         with JsonLinesWriter(args.output, append=args.append) as writer:
-            stats = pipeline.run(source, writer.write)
+            if args.bt1_only:
+                stats = pipeline.run(source, writer.write)
+            else:
+                stats = pipeline.run_bt2(source, writer.write)
     except CaptureError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

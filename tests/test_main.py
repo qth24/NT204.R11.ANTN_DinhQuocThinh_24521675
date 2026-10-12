@@ -75,3 +75,21 @@ def test_source_is_required() -> None:
         main.main([])
     with pytest.raises(SystemExit):
         main.main(["--pcap", "a.pcap", "--interface", "eth0"])
+
+
+def test_bt2_fields_by_default_and_bt1_only(tmp_path: Path, pcap_file: Path) -> None:
+    out = tmp_path / "out.jsonl"
+    main.main(["--pcap", str(pcap_file), "-o", str(out)])
+    assert "decode_status" in _read(out)[1]
+
+    main.main(["--pcap", str(pcap_file), "-o", str(out), "--bt1-only"])
+    assert "decode_status" not in _read(out)[1]
+
+
+def test_invalid_config_override_returns_error(
+    tmp_path: Path, pcap_file: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out = tmp_path / "out.jsonl"
+    argv = ["--pcap", str(pcap_file), "-o", str(out), "--set", "flow.nope=1"]
+    assert main.main(argv) == 1
+    assert "unknown config key" in capsys.readouterr().err

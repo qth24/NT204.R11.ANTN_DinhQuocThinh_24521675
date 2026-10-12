@@ -46,11 +46,12 @@ class JsonLinesWriter:
             self._file.close()
         self._file = None
 
-    def write(self, event: IDSEvent) -> None:
-        """Serialize one event and write it as a single line."""
+    def write(self, event: IDSEvent | dict[str, Any]) -> None:
+        """Serialize one event (dataclass or dict) and write it as a single line."""
         if self._file is None:
             raise RuntimeError("JsonLinesWriter used outside of a 'with' block")
-        line = json.dumps(event.to_dict(), ensure_ascii=False, default=_fallback)
+        record = event.to_dict() if isinstance(event, IDSEvent) else event
+        line = json.dumps(record, ensure_ascii=False, default=_fallback)
         self._file.write(line + "\n")
         self._file.flush()
         self.count += 1

@@ -9,6 +9,10 @@
 
 The same ``Pipeline`` object is used for live capture and PCAP import: both
 sources yield ``RawPacket`` objects.
+
+BT2 stages run on the event as a dict (``enrich``), after the BT1 parsers:
+
+    IDSEvent.to_dict() -> decode_event
 """
 
 from __future__ import annotations
@@ -17,9 +21,12 @@ import logging
 from collections import Counter
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
+from typing import Any
 
 from capture.raw_packet import RawPacket
+from config import Config
 from core.event import IDSEvent
+from decoder import decode_event
 from parsers.app import AppResult
 from parsers.app.dns_parser import parse_dns
 from parsers.app.http_parser import parse_http
@@ -52,19 +59,47 @@ class Pipeline:
     Args:
         skip_unknown: if True, packets whose protocol is UNKNOWN (ARP, IPv6,
             ICMP, unreadable...) produce no event instead of an UNKNOWN event.
+        config: BT2 settings (defaults when None).
     """
 
-    def __init__(self, skip_unknown: bool = False) -> None:
+    def __init__(
+        self, skip_unknown: bool = False, config: Config | None = None
+    ) -> None:
         self.skip_unknown = skip_unknown
+        self.config = config or Config()
         # The only mutable state: packet counter used for packet_id.
         self._packet_counter = 0
 
     def process(self, raw: RawPacket) -> IDSEvent | None:
-        """Parse one packet. Returns None only when it is skipped by config.
+        """BT1: parse one packet. Returns None only when skipped by config.
 
         Never raises: each layer is guarded separately so a failure in one
         layer keeps the fields already extracted by the previous ones.
         """
+        event, _payload = self._parse(raw)
+        if self.skip_unknown and event.protocol == "UNKNOWN":
+            return None
+        return event
+
+    def process_bt2(self, raw: RawPacket) -> dict[str, Any] | None:
+        """BT1 parsing followed by the BT2 stages; returns the event dict."""
+        event, payload = self._parse(raw)
+        if self.skip_unknown and event.protocol == "UNKNOWN":
+            return None
+        return self.enrich(event.to_dict(), payload)
+
+    def enrich(
+        self, event: dict[str, Any], payload: bytes | None = None
+    ) -> dict[str, Any]:
+        """Run the BT2 stages on one event dict (from a packet or a JSONL file).
+
+        ``payload`` is the raw application payload when the event comes from
+        a packet; it lets the decoder see the original bytes.
+        """
+        return decode_event(event, self.config.decoder, payload)
+
+    def _parse(self, raw: RawPacket) -> tuple[IDSEvent, bytes]:
+        """Run the BT1 parsers; returns the event and the application payload."""
         self._packet_counter += 1
         event = IDSEvent(
             packet_id=self._packet_counter,
@@ -78,17 +113,17 @@ class Pipeline:
                 f"truncated packet ({len(raw.data)} of {raw.wire_len} bytes)",
             )
 
+        payload = b""
         net = self._network_layer(raw, event)
         if net is not None and net.is_ipv4:
             transport = self._transport_layer(net, event)
             if transport is not None and transport.protocol != "UNKNOWN":
                 self._application_layer(transport, event)
+                payload = transport.payload
 
         if event.error:
             logger.info("packet %d: %s", event.packet_id, event.error)
-        if self.skip_unknown and event.protocol == "UNKNOWN":
-            return None
-        return event
+        return event, payload
 
     def run(
         self, source: Iterable[RawPacket], sink: Callable[[IDSEvent], None]
@@ -107,6 +142,23 @@ class Pipeline:
                 stats.by_app_protocol[event.app_protocol] += 1
             if event.error:
                 stats.with_error += 1
+            sink(event)
+        return stats
+
+    def run_bt2(
+        self,
+        source: Iterable[RawPacket],
+        sink: Callable[[dict[str, Any]], None],
+    ) -> PipelineStats:
+        """BT2: process every packet through all stages, events go to ``sink``."""
+        stats = PipelineStats()
+        for raw in source:
+            stats.processed += 1
+            event = self.process_bt2(raw)
+            if event is None:
+                stats.skipped += 1
+                continue
+            _count(stats, event)
             sink(event)
         return stats
 
@@ -167,6 +219,15 @@ class Pipeline:
             return
         event.app_data = result.data
         event.add_error(detection.app_protocol.lower(), result.error)
+
+
+def _count(stats: PipelineStats, event: dict[str, Any]) -> None:
+    stats.written += 1
+    stats.by_protocol[str(event.get("protocol"))] += 1
+    if event.get("app_protocol"):
+        stats.by_app_protocol[event["app_protocol"]] += 1
+    if event.get("error"):
+        stats.with_error += 1
 
 
 def _preview(payload: bytes) -> str | None:
