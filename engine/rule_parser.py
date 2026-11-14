@@ -23,7 +23,14 @@ import ipaddress
 import re
 from dataclasses import dataclass
 
-from engine.rule_model import ContentOption, PortRange, RuleHeader
+from engine.rule_model import (
+    ContentOption,
+    DsizeOption,
+    FlagsOption,
+    FlowOption,
+    PortRange,
+    RuleHeader,
+)
 
 
 class RuleError(Exception):
@@ -318,3 +325,91 @@ def _int_value(option: RawOption) -> int:
         return int(option.value or "")
     except ValueError as exc:
         raise invalid(f"bad_value:{option.key}") from exc
+
+
+# --- flow, flags, dsize -----------------------------------------------------
+
+_FLOW_DIRECTIONS = {
+    "to_server": "to_server",
+    "from_client": "to_server",  # Snort aliases
+    "to_client": "to_client",
+    "from_server": "to_client",
+}
+_FLOW_STATES = ("established", "not_established")
+_FLAG_LETTERS = frozenset("FSRPAUCE")
+
+
+def parse_flow(value: str | None) -> FlowOption:
+    """``flow:to_server,established`` -> FlowOption.
+
+    Direction and state may be combined; two directions or
+    ``established`` + ``not_established`` contradict each other (invalid).
+    ``stateless``, ``only_stream``... are valid Snort but out of scope.
+    """
+    if not value or not value.strip():
+        raise invalid("bad_value:flow")
+    directions: set[str] = set()
+    states: set[str] = set()
+    for token in (t.strip().lower() for t in value.split(",")):
+        if token in _FLOW_DIRECTIONS:
+            directions.add(_FLOW_DIRECTIONS[token])
+        elif token in _FLOW_STATES:
+            states.add(token)
+        elif re.fullmatch(r"[a-z_]+", token):
+            raise unsupported(f"flow_value:{token}")
+        else:
+            raise invalid(f"bad_flow_value:{token}")
+    if len(directions) > 1 or len(states) > 1:
+        raise invalid("flow_conflict")
+    return FlowOption(
+        direction=next(iter(directions), None), state=next(iter(states), None)
+    )
+
+
+def parse_flags(value: str | None) -> FlagsOption:
+    """``flags:[!+*]FSRPAU[,mask]`` -> FlagsOption (semantics: see matcher)."""
+    if not value or not value.strip():
+        raise invalid("bad_value:flags")
+    text = value.strip().upper()
+    modifier = ""
+    if text[0] in "!+*":
+        modifier, text = text[0], text[1:]
+    flag_text, comma, mask_text = text.partition(",")
+    flags = _flag_set(flag_text)
+    mask = _flag_set(mask_text) if comma else frozenset()
+    if modifier and not flags:
+        raise invalid("bad_flags:modifier_without_flags")
+    return FlagsOption(flags=flags, modifier=modifier, mask=mask)
+
+
+def _flag_set(text: str) -> frozenset[str]:
+    if text == "0":
+        return frozenset()  # "0" = no flag set
+    if not text or not set(text) <= _FLAG_LETTERS:
+        raise invalid(f"bad_flags:{text}")
+    return frozenset(text)
+
+
+def parse_dsize(value: str | None) -> DsizeOption:
+    """``dsize:N`` | ``<N`` | ``>N`` | ``N<>M`` -> DsizeOption."""
+    text = (value or "").replace(" ", "")
+    try:
+        if "<>" in text:
+            low, _, high = text.partition("<>")
+            low_n, high_n = _size(low), _size(high)
+            if low_n > high_n:
+                raise invalid(f"bad_dsize_range:{low_n}:{high_n}")
+            return DsizeOption("range", low_n, high_n)
+        if text.startswith("<"):
+            return DsizeOption("lt", _size(text[1:]))
+        if text.startswith(">"):
+            return DsizeOption("gt", _size(text[1:]))
+        return DsizeOption("eq", _size(text))
+    except ValueError as exc:
+        raise invalid(f"bad_dsize:{value}") from exc
+
+
+def _size(text: str) -> int:
+    if not text.isdigit():
+        raise ValueError(text)
+    return int(text)
