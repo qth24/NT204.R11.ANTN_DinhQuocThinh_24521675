@@ -16,9 +16,10 @@ Structure::
 Contract: ``candidates(event)`` is a SUPERSET of the rules that can match.
     * A rule is filed by the port of its DESTINATION side.
     * A ``->`` rule can only match if event.dst_port is in that port set, so
-      only event.dst_port is looked up.
+      only event.dst_port is looked up for it.
     * A ``<>`` rule also matches the reversed direction, where the rule's
-      destination ports face event.src_port, so BOTH event ports are looked up.
+      destination ports face event.src_port, so for ``<>`` rules BOTH event
+      ports are looked up.
     * An event without ports (None) can only match rules filed under ``any``.
 The header matcher still re-checks everything exactly.
 
@@ -50,6 +51,7 @@ class RuleRepository:
         self._rules: list[Rule] = []
         self._by_sid: dict[int, Rule] = {}
         self._by_proto: dict[str, PortBuckets] = {}
+        self._bidirectional: set[int] = set()  # indexes of "<>" rules
 
     def __len__(self) -> int:
         return len(self._rules)
@@ -61,6 +63,8 @@ class RuleRepository:
         index = len(self._rules)
         self._rules.append(rule)
         self._by_sid[rule.sid] = rule
+        if rule.header.direction == "<>":
+            self._bidirectional.add(index)
         buckets = self._by_proto.setdefault(rule.header.proto, PortBuckets())
         ports = rule.header.dst_ports
         if not ports:
@@ -85,9 +89,17 @@ class RuleRepository:
         if buckets is None:
             return []  # other protocol: nothing can match
         found: set[int] = set(buckets.any)
-        for port in _lookup_ports(event):
-            found.update(buckets.exact.get(port, ()))
-            found.update(i for r, i in buckets.ranges if r.contains(port))
+        dst_port, src_port = _port(event, "dst_port"), _port(event, "src_port")
+        if dst_port is not None:
+            found.update(buckets.exact.get(dst_port, ()))
+            found.update(i for r, i in buckets.ranges if r.contains(dst_port))
+        if src_port is not None:
+            # Only "<>" rules can face their destination ports to the source.
+            bidir = self._bidirectional
+            found.update(i for i in buckets.exact.get(src_port, ()) if i in bidir)
+            found.update(
+                i for r, i in buckets.ranges if i in bidir and r.contains(src_port)
+            )
         return [self._rules[i] for i in sorted(found)]
 
 
@@ -98,11 +110,6 @@ def _protocol(event: dict[str, Any]) -> str:
     return str(event.get("protocol") or "").upper()
 
 
-def _lookup_ports(event: dict[str, Any]) -> list[int]:
-    """Event ports to look up: dst for ``->`` rules, plus src for ``<>`` rules."""
-    ports = []
-    for name in ("dst_port", "src_port"):
-        port = event.get(name)
-        if isinstance(port, int) and not isinstance(port, bool):
-            ports.append(port)
-    return ports
+def _port(event: dict[str, Any], name: str) -> int | None:
+    port = event.get(name)
+    return port if isinstance(port, int) and not isinstance(port, bool) else None
