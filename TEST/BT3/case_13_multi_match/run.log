@@ -1,0 +1,14 @@
+packets processed : 4
+events written    : 4 -> TEST/BT3/case_13_multi_match/events.jsonl
+skipped (unknown) : 0
+events with error : 0
+protocols         : TCP=4
+app protocols     : HTTP=1
+preprocess status : valid=4
+dropped           : 0
+flows exported    : 1 -> TEST/BT3/case_13_multi_match/flows.jsonl
+flow end reasons  : end_of_capture=1
+rules             : loaded=5 valid=5 invalid=0 unsupported=0 disabled=0
+detections        : 4 -> TEST/BT3/case_13_multi_match/detections.jsonl
+engine            : events=4 candidates/event=4.0 rejected_by_header=0 matched=4 errors=0
+rule hits (sid)   : 1301=1, 1303=1, 1304=1, 1307=1

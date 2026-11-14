@@ -1,0 +1,2 @@
+alert tcp any any -> any 80 (msg:"union select"; content:"union"; nocase; content:"select"; nocase; distance:1; within:10; sid:1303;)
+alert tcp any any -> any any (msg:"any tcp payload"; dsize:>0; sid:1304;)
