@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import sys
 from collections.abc import Iterator
@@ -24,9 +25,14 @@ class JsonLinesWriter:
             writer.write(event)
     """
 
-    def __init__(self, path: str, append: bool = False) -> None:
+    def __init__(
+        self, path: str, append: bool = False, payload_b64: bool = True
+    ) -> None:
         self.path = path
         self.append = append
+        # BT3 events carry ``payload`` (bytes): written as ``payload_b64``
+        # (set False to leave the payload out of the file).
+        self.payload_b64 = payload_b64
         self.count = 0
         self._file: IO[str] | None = None
 
@@ -52,6 +58,11 @@ class JsonLinesWriter:
         if self._file is None:
             raise RuntimeError("JsonLinesWriter used outside of a 'with' block")
         record = event.to_dict() if isinstance(event, IDSEvent) else event
+        if isinstance(record.get("payload"), bytes):
+            record = dict(record)  # never change the caller's event
+            payload = record.pop("payload")
+            if self.payload_b64:
+                record["payload_b64"] = base64.b64encode(payload).decode("ascii")
         line = json.dumps(record, ensure_ascii=False, default=_fallback)
         self._file.write(line + "\n")
         self._file.flush()

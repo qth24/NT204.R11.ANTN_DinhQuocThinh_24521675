@@ -18,6 +18,8 @@ BT2 stages run on the event as a dict (``enrich``), after the BT1 parsers:
 from __future__ import annotations
 
 import logging
+import base64
+import binascii
 from collections import Counter
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
@@ -69,9 +71,14 @@ class Pipeline:
     """
 
     def __init__(
-        self, skip_unknown: bool = False, config: Config | None = None
+        self,
+        skip_unknown: bool = False,
+        config: Config | None = None,
+        keep_payload: bool = False,
     ) -> None:
         self.skip_unknown = skip_unknown
+        # BT3: attach the transport payload (bytes) to events as ``payload``.
+        self.keep_payload = keep_payload
         self.config = config or Config()
         # The only mutable state: packet counter used for packet_id.
         # (The flow table lives inside the FlowTracker instance.)
@@ -119,6 +126,8 @@ class Pipeline:
         Flows exported meanwhile (expired/closed/evicted) go to ``flow_sink``.
         Returns None when the event is dropped and not logged.
         """
+        if self.keep_payload:
+            self._attach_payload(event, payload)
         event = decode_event(event, self.config.decoder, payload)
         result = preprocess_event(event, self.config.preprocess)
         event["flow_id"] = None
@@ -137,6 +146,29 @@ class Pipeline:
             for record in exported:
                 self._flow_out(record, flow_sink)
         return event
+
+    def _attach_payload(self, event: dict[str, Any], payload: bytes | None) -> None:
+        """Set ``event["payload"]`` (bytes, cut to engine.max_payload_bytes).
+
+        From a packet the bytes come from the parser; from a JSONL event they
+        are decoded from ``payload_b64`` (written by a previous run). The
+        length of the whole payload stays in ``payload_length`` (= dsize).
+        """
+        if payload is None:
+            encoded = event.get("payload_b64")
+            try:
+                payload = (
+                    base64.b64decode(encoded, validate=True)
+                    if isinstance(encoded, str)
+                    else None
+                )
+            except (binascii.Error, ValueError):
+                payload = None
+        if payload is None:
+            return
+        event["payload"] = payload[: self.config.engine.max_payload_bytes]
+        if not isinstance(event.get("payload_length"), int):
+            event["payload_length"] = len(payload)
 
     def flush_flows(
         self, flow_sink: Callable[[dict[str, Any]], None] | None = None
