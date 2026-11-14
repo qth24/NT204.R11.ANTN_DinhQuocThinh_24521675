@@ -1,0 +1,232 @@
+{
+  "summary": {
+    "loaded": 6,
+    "valid": 6,
+    "invalid": 0,
+    "unsupported": 0,
+    "disabled": 0
+  },
+  "problems": [],
+  "warnings": [],
+  "rules": [
+    {
+      "sid": 401,
+      "rev": 1,
+      "msg": "h1 any",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": []
+      },
+      "contents": [],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_04_header_parse/header.rules",
+      "line_no": 1,
+      "raw": "alert tcp any any -> any any (msg:\"h1 any\"; sid:401;)",
+      "status": "valid"
+    },
+    {
+      "sid": 402,
+      "rev": 1,
+      "msg": "h2 single ip, single port",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [
+          "192.168.1.10/32"
+        ],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [
+          "10.0.0.5/32"
+        ],
+        "dst_ports": [
+          {
+            "low": 80,
+            "high": 80
+          }
+        ]
+      },
+      "contents": [],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_04_header_parse/header.rules",
+      "line_no": 2,
+      "raw": "alert tcp 192.168.1.10 any -> 10.0.0.5 80 (msg:\"h2 single ip, single port\"; sid:402;)",
+      "status": "valid"
+    },
+    {
+      "sid": 403,
+      "rev": 1,
+      "msg": "h3 cidr and ranges",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [
+          "10.0.0.0/8"
+        ],
+        "src_ports": [
+          {
+            "low": 1024,
+            "high": 65535
+          }
+        ],
+        "direction": "->",
+        "dst_nets": [
+          "192.168.0.0/16"
+        ],
+        "dst_ports": [
+          {
+            "low": 1,
+            "high": 1024
+          }
+        ]
+      },
+      "contents": [],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_04_header_parse/header.rules",
+      "line_no": 3,
+      "raw": "alert tcp 10.0.0.0/8 1024: -> 192.168.0.0/16 1:1024 (msg:\"h3 cidr and ranges\"; sid:403;)",
+      "status": "valid"
+    },
+    {
+      "sid": 404,
+      "rev": 1,
+      "msg": "h4 open range, bidirectional",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [
+          {
+            "low": 0,
+            "high": 1023
+          }
+        ],
+        "direction": "<>",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 8080,
+            "high": 8080
+          }
+        ]
+      },
+      "contents": [],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_04_header_parse/header.rules",
+      "line_no": 4,
+      "raw": "alert tcp any :1023 <> any 8080 (msg:\"h4 open range, bidirectional\"; sid:404;)",
+      "status": "valid"
+    },
+    {
+      "sid": 405,
+      "rev": 1,
+      "msg": "h5 host bits in cidr",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [
+          "10.0.0.0/8"
+        ],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": []
+      },
+      "contents": [],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_04_header_parse/header.rules",
+      "line_no": 5,
+      "raw": "alert tcp 10.1.2.3/8 any -> any any (msg:\"h5 host bits in cidr\"; sid:405;)",
+      "status": "valid"
+    },
+    {
+      "sid": 406,
+      "rev": 3,
+      "msg": "full rule; with semicolon",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 80,
+            "high": 80
+          }
+        ]
+      },
+      "contents": [
+        {
+          "pattern": "61 3b 62 3a 20 63",
+          "nocase": true,
+          "offset": 2,
+          "depth": 10,
+          "distance": null,
+          "within": null
+        }
+      ],
+      "flow": {
+        "direction": "to_server",
+        "state": "established"
+      },
+      "flags": {
+        "flags": [
+          "A",
+          "S"
+        ],
+        "modifier": "+",
+        "mask": [
+          "C",
+          "E"
+        ]
+      },
+      "dsize": {
+        "op": "range",
+        "value": 4,
+        "high": 8
+      },
+      "classtype": "web-attack",
+      "priority": 2,
+      "source_file": "TEST/BT3/case_04_header_parse/header.rules",
+      "line_no": 6,
+      "raw": "alert tcp any any -> any 80 (msg:\"full rule; with semicolon\"; content:\"a\\;b|3a 20|c\"; nocase; offset:2; depth:10; flow:to_server,established; flags:+SA,CE; dsize:4<>8; classtype:web-attack; priority:2; sid:406; rev:3;)",
+      "status": "valid"
+    }
+  ],
+  "candidates": {
+    "1": [
+      401,
+      402,
+      403,
+      405,
+      406
+    ]
+  }
+}

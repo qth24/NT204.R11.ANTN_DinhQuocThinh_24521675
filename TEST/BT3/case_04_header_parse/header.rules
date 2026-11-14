@@ -1,0 +1,6 @@
+alert tcp any any -> any any (msg:"h1 any"; sid:401;)
+alert tcp 192.168.1.10 any -> 10.0.0.5 80 (msg:"h2 single ip, single port"; sid:402;)
+alert tcp 10.0.0.0/8 1024: -> 192.168.0.0/16 1:1024 (msg:"h3 cidr and ranges"; sid:403;)
+alert tcp any :1023 <> any 8080 (msg:"h4 open range, bidirectional"; sid:404;)
+alert tcp 10.1.2.3/8 any -> any any (msg:"h5 host bits in cidr"; sid:405;)
+alert tcp any any -> any 80 (msg:"full rule; with semicolon"; content:"a\;b|3a 20|c"; nocase; offset:2; depth:10; flow:to_server,established; flags:+SA,CE; dsize:4<>8; classtype:web-attack; priority:2; sid:406; rev:3;)
