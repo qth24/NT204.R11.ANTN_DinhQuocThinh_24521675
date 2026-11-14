@@ -64,10 +64,37 @@ class FlowConfig:
 
 
 @dataclass(frozen=True)
+class EngineConfig:
+    """engine.*  (BT3 signature engine)"""
+
+    enabled: bool = True
+    # Rule files or directories (*.rules); the CLI --rules replaces this list.
+    rule_files: tuple[str, ...] = ()
+    # Whole files (path or basename) / single sids that are switched off.
+    disabled_rule_files: tuple[str, ...] = ()
+    disabled_sids: tuple[int, ...] = ()
+    # Harmless keywords: accepted and ignored with a warning.
+    ignorable_keywords: tuple[str, ...] = ("reference", "metadata", "gid")
+    # False (default): every rule matching an event is reported.
+    stop_on_first_match: bool = False
+    # Payload bytes kept in the event / matched (longer payloads are cut).
+    max_payload_bytes: int = 65535
+    # Write the payload as payload_b64 in events.jsonl.
+    log_payload: bool = True
+    # Max start positions tried for relative content (distance/within).
+    max_content_backtrack: int = 1000
+    # Priority of rules without "priority" (0 = leave it null).
+    default_priority: int = 0
+    # dsize:N<>M includes the bounds (True) or not (False).
+    dsize_range_inclusive: bool = True
+
+
+@dataclass(frozen=True)
 class Config:
     decoder: DecoderConfig = field(default_factory=DecoderConfig)
     preprocess: PreprocessConfig = field(default_factory=PreprocessConfig)
     flow: FlowConfig = field(default_factory=FlowConfig)
+    engine: EngineConfig = field(default_factory=EngineConfig)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -133,6 +160,10 @@ def _read_file(path: str) -> dict[str, dict[str, Any]]:
     return data
 
 
+# Tuple options whose items are integers (the others hold strings).
+_INT_TUPLES = frozenset({"engine.disabled_sids"})
+
+
 def _coerce(key: str, value: Any, target: type) -> Any:
     """Convert a value from JSON or the CLI (always str) to the default's type."""
     try:
@@ -152,6 +183,13 @@ def _coerce(key: str, value: Any, target: type) -> Any:
             if isinstance(value, bool):
                 raise ValueError
             return float(value)
+        if target is tuple:
+            if isinstance(value, str):
+                value = [v.strip() for v in value.split(",") if v.strip()]
+            if not isinstance(value, (list, tuple)):
+                raise ValueError
+            convert = int if key in _INT_TUPLES else str
+            return tuple(convert(v) for v in value)
         return str(value)
     except (TypeError, ValueError) as exc:
         raise ConfigError(f"{key}: invalid {target.__name__} value {value!r}") from exc
@@ -159,6 +197,13 @@ def _coerce(key: str, value: Any, target: type) -> Any:
 
 def _validate(config: Config) -> None:
     pre, flow = config.preprocess, config.flow
+    eng = config.engine
+    if eng.max_payload_bytes <= 0:
+        raise ConfigError("engine.max_payload_bytes must be > 0")
+    if eng.max_content_backtrack <= 0:
+        raise ConfigError("engine.max_content_backtrack must be > 0")
+    if eng.default_priority < 0:
+        raise ConfigError("engine.default_priority must be >= 0")
     for name in ("on_invalid", "on_unsupported"):
         if getattr(pre, name) not in POLICIES:
             raise ConfigError(f"preprocess.{name} must be one of {POLICIES}")

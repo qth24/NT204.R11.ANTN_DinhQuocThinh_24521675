@@ -17,5 +17,24 @@
     "max_active_flows": 100000,
     "portless": "skip",
     "sweep_interval": 1.0
+  },
+  "engine": {
+    "enabled": true,
+    "rule_files": [
+      "rules/local.rules"
+    ],
+    "disabled_rule_files": [],
+    "disabled_sids": [],
+    "ignorable_keywords": [
+      "reference",
+      "metadata",
+      "gid"
+    ],
+    "stop_on_first_match": false,
+    "max_payload_bytes": 65535,
+    "log_payload": true,
+    "max_content_backtrack": 1000,
+    "default_priority": 0,
+    "dsize_range_inclusive": true
   }
 }
