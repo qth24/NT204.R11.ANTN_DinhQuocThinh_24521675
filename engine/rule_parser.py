@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import ipaddress
 import re
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
 from engine.rule_model import (
@@ -28,7 +29,9 @@ from engine.rule_model import (
     DsizeOption,
     FlagsOption,
     FlowOption,
+    ParseResult,
     PortRange,
+    Rule,
     RuleHeader,
 )
 
@@ -413,3 +416,144 @@ def _size(text: str) -> int:
     if not text.isdigit():
         raise ValueError(text)
     return int(text)
+
+
+# --- full rule --------------------------------------------------------------
+
+DEFAULT_IGNORABLE = ("reference", "metadata", "gid")
+_SINGLE_OPTIONS = frozenset(
+    {"sid", "rev", "msg", "classtype", "priority", "flow", "flags", "dsize"}
+)
+
+
+def parse_rule(
+    line: str,
+    source_file: str = "",
+    line_no: int = 0,
+    ignorable: Iterable[str] = DEFAULT_IGNORABLE,
+) -> ParseResult:
+    """Parse and validate one rule line. Never raises.
+
+    Decision order: an ``invalid`` problem anywhere beats ``unsupported``
+    (a broken rule is reported as broken even if it also uses pcre);
+    ``unsupported`` problems are collected so all reasons are listed.
+    Keywords in ``ignorable`` are accepted, ignored and reported as warnings.
+    """
+    ignore = {k.lower() for k in ignorable}
+    unsupported_reasons: list[str] = []
+    warnings: list[str] = []
+
+    def note(error: RuleError) -> None:
+        """Remember an 'unsupported' problem; re-raise 'invalid' ones."""
+        if error.status == "invalid":
+            raise error
+        if error.code not in unsupported_reasons:
+            unsupported_reasons.append(error.code)
+
+    try:
+        header_text, options_text = split_rule(line)
+        header = None
+        try:
+            action, header = parse_header(header_text)
+        except RuleError as error:
+            note(error)
+            action = "alert"
+        options = tokenize_options(options_text)
+        contents: list[ContentOption] = []
+        try:
+            contents, options = parse_content_options(options)
+        except RuleError as error:
+            note(error)
+            options = [o for o in options if o.key != "content"]
+
+        fields: dict[str, object] = {}
+        for option in options:
+            key = option.key
+            if key in _SINGLE_OPTIONS and key in fields:
+                raise invalid(f"duplicate_option:{key}")
+            try:
+                if key == "sid":
+                    fields[key] = _positive_int(option, "sid", minimum=1)
+                elif key == "rev":
+                    fields[key] = _positive_int(option, "rev", minimum=0)
+                elif key == "priority":
+                    fields[key] = _positive_int(option, "priority", minimum=1)
+                elif key == "msg":
+                    fields[key] = unquote(option.value, allow_hex=False).decode(
+                        "utf-8", errors="replace"
+                    )
+                elif key == "classtype":
+                    if not option.value or not re.fullmatch(r"[\w.-]+", option.value):
+                        raise invalid("bad_value:classtype")
+                    fields[key] = option.value
+                elif key == "flow":
+                    fields[key] = parse_flow(option.value)
+                elif key == "flags":
+                    fields[key] = parse_flags(option.value)
+                elif key == "dsize":
+                    fields[key] = parse_dsize(option.value)
+                elif key in ignore:
+                    warnings.append(f"ignored:keyword:{key}")
+                else:
+                    raise unsupported(f"keyword:{key}")
+            except RuleError as error:
+                note(error)
+
+        if "sid" not in fields:
+            raise invalid("missing_sid")
+        if "msg" not in fields:
+            raise invalid("missing_msg")
+    except RuleError as error:
+        return ParseResult(
+            error.status, None, (error.code,), source_file, line_no, tuple(warnings)
+        )
+
+    if unsupported_reasons:
+        return ParseResult(
+            "unsupported",
+            None,
+            tuple(unsupported_reasons),
+            source_file,
+            line_no,
+            tuple(warnings),
+        )
+    assert header is not None
+    rule = Rule(
+        sid=fields["sid"],  # type: ignore[arg-type]
+        rev=fields.get("rev", 1),  # type: ignore[arg-type]  # default rev 1
+        msg=fields["msg"],  # type: ignore[arg-type]
+        action=action,
+        header=header,
+        contents=tuple(contents),
+        flow=fields.get("flow"),  # type: ignore[arg-type]
+        flags=fields.get("flags"),  # type: ignore[arg-type]
+        dsize=fields.get("dsize"),  # type: ignore[arg-type]
+        classtype=fields.get("classtype"),  # type: ignore[arg-type]
+        priority=fields.get("priority"),  # type: ignore[arg-type]
+        source_file=source_file,
+        line_no=line_no,
+        raw=line.strip(),
+    )
+    return ParseResult("valid", rule, (), source_file, line_no, tuple(warnings))
+
+
+def make_parser(
+    ignorable: Iterable[str] = DEFAULT_IGNORABLE,
+) -> Callable[[str, str, int], ParseResult]:
+    """Parser function with the signature the rule loader expects."""
+    ignore = tuple(ignorable)
+
+    def parse(line: str, source_file: str, line_no: int) -> ParseResult:
+        return parse_rule(line, source_file, line_no, ignore)
+
+    return parse
+
+
+def _positive_int(option: RawOption, name: str, minimum: int) -> int:
+    try:
+        number = int(option.value or "")
+    except ValueError as exc:
+        raise invalid(f"bad_{name}:{option.value}") from exc
+    if number < minimum or not (option.value or "").strip().isdigit():
+        raise invalid(f"bad_{name}:{option.value}")
+    return number
