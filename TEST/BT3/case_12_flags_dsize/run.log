@@ -1,0 +1,14 @@
+packets processed : 8
+events written    : 8 -> TEST/BT3/case_12_flags_dsize/events.jsonl
+skipped (unknown) : 0
+events with error : 0
+protocols         : TCP=7, UDP=1
+app protocols     : -
+preprocess status : valid=8
+dropped           : 0
+flows exported    : 2 -> TEST/BT3/case_12_flags_dsize/flows.jsonl
+flow end reasons  : end_of_capture=2
+rules             : loaded=10 valid=10 invalid=0 unsupported=0 disabled=0
+detections        : 20 -> TEST/BT3/case_12_flags_dsize/detections.jsonl
+engine            : events=8 candidates/event=8.75 rejected_by_header=0 matched=20 errors=0
+rule hits (sid)   : 1201=1, 1202=1, 1203=1, 1204=5, 1205=3, 1206=1, 1207=5, 1208=1, 1209=1, 1210=1
