@@ -74,11 +74,11 @@ class Pipeline:
         self,
         skip_unknown: bool = False,
         config: Config | None = None,
-        keep_payload: bool = False,
+        detect: bool = False,
     ) -> None:
         self.skip_unknown = skip_unknown
-        # BT3: attach the transport payload (bytes) to events as ``payload``.
-        self.keep_payload = keep_payload
+        # BT3: events also get ``payload`` (bytes) and ``flow_context``.
+        self.detect = detect
         self.config = config or Config()
         # The only mutable state: packet counter used for packet_id.
         # (The flow table lives inside the FlowTracker instance.)
@@ -126,7 +126,7 @@ class Pipeline:
         Flows exported meanwhile (expired/closed/evicted) go to ``flow_sink``.
         Returns None when the event is dropped and not logged.
         """
-        if self.keep_payload:
+        if self.detect:
             self._attach_payload(event, payload)
         event = decode_event(event, self.config.decoder, payload)
         result = preprocess_event(event, self.config.preprocess)
@@ -136,7 +136,7 @@ class Pipeline:
             return result  # dropped events never reach the flow tracker
         if self.tracker is not None:
             try:
-                exported = self.tracker.process(event)
+                exported = self.tracker.process(event, with_context=self.detect)
             except Exception as exc:  # must not stop the pipeline
                 logger.exception(
                     "flow tracker failed on packet %s", event.get("packet_id")

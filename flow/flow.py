@@ -98,6 +98,20 @@ class Flow:
         if self.application_protocol is None and app_protocol:
             self.application_protocol = app_protocol
 
+    def context(self, direction: str) -> dict[str, Any]:
+        """Snapshot for the detection engine, taken after the current packet
+        was added (so an ACK that completes the handshake already shows
+        ESTABLISHED)."""
+        return {
+            "flow_id": self.flow_id,
+            "direction": direction,
+            "state": self.state,
+            "protocol": self.protocol,
+            "fwd_packet_count": self.fwd_packet_count,
+            "bwd_packet_count": self.bwd_packet_count,
+            "notes": list(self.notes),
+        }
+
     def to_record(self) -> dict[str, Any]:
         """Line written to flows.jsonl."""
         return {

@@ -28,14 +28,14 @@ def _event(**extra):
 
 def test_payload_attached_from_bytes_and_cut():
     cfg = Config(engine=EngineConfig(max_payload_bytes=4))
-    pipe = Pipeline(config=cfg, keep_payload=True)
+    pipe = Pipeline(config=cfg, detect=True)
     out = pipe.enrich(_event(payload_length=10), b"0123456789")
     assert out["payload"] == b"0123"
     assert out["payload_length"] == 10  # dsize keeps the real length
 
 
 def test_payload_from_jsonl_b64_and_dsize_for_empty():
-    pipe = Pipeline(keep_payload=True)
+    pipe = Pipeline(detect=True)
     b64 = base64.b64encode(b"abc").decode()
     out = pipe.enrich(_event(payload_b64=b64), None)
     assert out["payload"] == b"abc" and out["payload_length"] == 3

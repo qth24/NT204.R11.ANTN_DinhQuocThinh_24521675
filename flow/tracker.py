@@ -67,8 +67,15 @@ class FlowTracker:
     def active_flow_ids(self) -> list[str]:
         return [flow.flow_id for flow in self._active.values()]
 
-    def process(self, event: dict[str, Any]) -> list[dict[str, Any]]:
+    def process(
+        self, event: dict[str, Any], with_context: bool = False
+    ) -> list[dict[str, Any]]:
         """Attach ``flow_id``/``direction`` to ``event``.
+
+        With ``with_context`` also set ``event["flow_context"]``: the state of
+        the flow *right after this packet was counted* (see ``Flow.context``),
+        or None when the packet belongs to no flow. Used by the BT3 engine;
+        off by default so BT2 output stays unchanged.
 
         Returns the records of flows exported while handling this packet
         (expired, closed or evicted ones). Never raises on bad input: an
@@ -76,6 +83,8 @@ class FlowTracker:
         """
         event["flow_id"] = None
         event["direction"] = None
+        if with_context:
+            event["flow_context"] = None
         timestamp = event.get("timestamp")
         if not _valid_time(timestamp):
             # NaN / inf / negative / non-number would break every timeout
@@ -132,6 +141,8 @@ class FlowTracker:
 
         event["flow_id"] = flow.flow_id
         event["direction"] = direction
+        if with_context:
+            event["flow_context"] = flow.context(direction)
         return exported
 
     def sweep(self, now: float) -> list[dict[str, Any]]:
