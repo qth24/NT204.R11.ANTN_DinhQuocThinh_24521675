@@ -1,0 +1,142 @@
+{
+  "summary": {
+    "loaded": 10,
+    "valid": 1,
+    "invalid": 0,
+    "unsupported": 9,
+    "disabled": 0
+  },
+  "problems": [
+    {
+      "file": "unsupported.rules",
+      "line": 1,
+      "status": "unsupported",
+      "reasons": [
+        "unsupported:keyword:pcre"
+      ]
+    },
+    {
+      "file": "unsupported.rules",
+      "line": 2,
+      "status": "unsupported",
+      "reasons": [
+        "unsupported:keyword:byte_test"
+      ]
+    },
+    {
+      "file": "unsupported.rules",
+      "line": 3,
+      "status": "unsupported",
+      "reasons": [
+        "unsupported:keyword:http_uri"
+      ]
+    },
+    {
+      "file": "unsupported.rules",
+      "line": 4,
+      "status": "unsupported",
+      "reasons": [
+        "unsupported:action:drop"
+      ]
+    },
+    {
+      "file": "unsupported.rules",
+      "line": 5,
+      "status": "unsupported",
+      "reasons": [
+        "unsupported:protocol:icmp"
+      ]
+    },
+    {
+      "file": "unsupported.rules",
+      "line": 6,
+      "status": "unsupported",
+      "reasons": [
+        "unsupported:ip_syntax:!10.0.0.0/8"
+      ]
+    },
+    {
+      "file": "unsupported.rules",
+      "line": 7,
+      "status": "unsupported",
+      "reasons": [
+        "unsupported:port_syntax:[80,443]"
+      ]
+    },
+    {
+      "file": "unsupported.rules",
+      "line": 8,
+      "status": "unsupported",
+      "reasons": [
+        "unsupported:ip_syntax:$HOME_NET"
+      ]
+    },
+    {
+      "file": "unsupported.rules",
+      "line": 9,
+      "status": "unsupported",
+      "reasons": [
+        "unsupported:keyword:flowbits"
+      ]
+    }
+  ],
+  "warnings": [
+    "TEST/BT3/case_03_unsupported_rules/unsupported.rules:10: ignored:keyword:reference",
+    "TEST/BT3/case_03_unsupported_rules/unsupported.rules:10: ignored:keyword:metadata",
+    "TEST/BT3/case_03_unsupported_rules/unsupported.rules:10: ignored:keyword:gid",
+    "TEST/BT3/case_03_unsupported_rules/unsupported.rules:1: unsupported (unsupported:keyword:pcre)",
+    "TEST/BT3/case_03_unsupported_rules/unsupported.rules:2: unsupported (unsupported:keyword:byte_test)",
+    "TEST/BT3/case_03_unsupported_rules/unsupported.rules:3: unsupported (unsupported:keyword:http_uri)",
+    "TEST/BT3/case_03_unsupported_rules/unsupported.rules:4: unsupported (unsupported:action:drop)",
+    "TEST/BT3/case_03_unsupported_rules/unsupported.rules:5: unsupported (unsupported:protocol:icmp)",
+    "TEST/BT3/case_03_unsupported_rules/unsupported.rules:6: unsupported (unsupported:ip_syntax:!10.0.0.0/8)",
+    "TEST/BT3/case_03_unsupported_rules/unsupported.rules:7: unsupported (unsupported:port_syntax:[80,443])",
+    "TEST/BT3/case_03_unsupported_rules/unsupported.rules:8: unsupported (unsupported:ip_syntax:$HOME_NET)",
+    "TEST/BT3/case_03_unsupported_rules/unsupported.rules:9: unsupported (unsupported:keyword:flowbits)"
+  ],
+  "rules": [
+    {
+      "sid": 310,
+      "rev": 1,
+      "msg": "harmless keywords",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 80,
+            "high": 80
+          }
+        ]
+      },
+      "contents": [
+        {
+          "pattern": "47 45 54",
+          "nocase": false,
+          "offset": null,
+          "depth": null,
+          "distance": null,
+          "within": null
+        }
+      ],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_03_unsupported_rules/unsupported.rules",
+      "line_no": 10,
+      "raw": "alert tcp any any -> any 80 (msg:\"harmless keywords\"; content:\"GET\"; reference:cve,2020-0001; metadata:service http; gid:1; sid:310;)",
+      "status": "valid"
+    }
+  ],
+  "candidates": {
+    "1": [
+      310
+    ]
+  }
+}
