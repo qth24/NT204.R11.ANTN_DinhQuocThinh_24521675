@@ -1,0 +1,150 @@
+{
+  "summary": {
+    "loaded": 4,
+    "valid": 4,
+    "invalid": 0,
+    "unsupported": 0,
+    "disabled": 0
+  },
+  "problems": [],
+  "warnings": [],
+  "rules": [
+    {
+      "sid": 801,
+      "rev": 1,
+      "msg": "to_server established",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 80,
+            "high": 80
+          }
+        ]
+      },
+      "contents": [],
+      "flow": {
+        "direction": "to_server",
+        "state": "established"
+      },
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_08_flow_established/flow.rules",
+      "line_no": 1,
+      "raw": "alert tcp any any -> any 80 (msg:\"to_server established\"; flow:to_server,established; sid:801;)",
+      "status": "valid"
+    },
+    {
+      "sid": 802,
+      "rev": 1,
+      "msg": "to_server not_established",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 80,
+            "high": 80
+          }
+        ]
+      },
+      "contents": [],
+      "flow": {
+        "direction": "to_server",
+        "state": "not_established"
+      },
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_08_flow_established/flow.rules",
+      "line_no": 2,
+      "raw": "alert tcp any any -> any 80 (msg:\"to_server not_established\"; flow:to_server,not_established; sid:802;)",
+      "status": "valid"
+    },
+    {
+      "sid": 803,
+      "rev": 1,
+      "msg": "to_client established",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "<>",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 80,
+            "high": 80
+          }
+        ]
+      },
+      "contents": [],
+      "flow": {
+        "direction": "to_client",
+        "state": "established"
+      },
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_08_flow_established/flow.rules",
+      "line_no": 3,
+      "raw": "alert tcp any any <> any 80 (msg:\"to_client established\"; flow:to_client,established; sid:803;)",
+      "status": "valid"
+    },
+    {
+      "sid": 804,
+      "rev": 1,
+      "msg": "GET to_server established",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 80,
+            "high": 80
+          }
+        ]
+      },
+      "contents": [
+        {
+          "pattern": "47 45 54",
+          "nocase": false,
+          "offset": null,
+          "depth": null,
+          "distance": null,
+          "within": null
+        }
+      ],
+      "flow": {
+        "direction": "to_server",
+        "state": "established"
+      },
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_08_flow_established/flow.rules",
+      "line_no": 4,
+      "raw": "alert tcp any any -> any 80 (msg:\"GET to_server established\"; flow:to_server,established; content:\"GET\"; sid:804;)",
+      "status": "valid"
+    }
+  ]
+}

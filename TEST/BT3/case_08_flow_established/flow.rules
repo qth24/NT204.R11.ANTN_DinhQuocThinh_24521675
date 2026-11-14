@@ -1,0 +1,4 @@
+alert tcp any any -> any 80 (msg:"to_server established"; flow:to_server,established; sid:801;)
+alert tcp any any -> any 80 (msg:"to_server not_established"; flow:to_server,not_established; sid:802;)
+alert tcp any any <> any 80 (msg:"to_client established"; flow:to_client,established; sid:803;)
+alert tcp any any -> any 80 (msg:"GET to_server established"; flow:to_server,established; content:"GET"; sid:804;)
