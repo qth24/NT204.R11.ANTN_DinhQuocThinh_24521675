@@ -1,0 +1,14 @@
+packets processed : 3
+events written    : 3 -> TEST/BT3/case_05_direction/events.jsonl
+skipped (unknown) : 0
+events with error : 0
+protocols         : TCP=3
+app protocols     : -
+preprocess status : valid=3
+dropped           : 0
+flows exported    : 2 -> TEST/BT3/case_05_direction/flows.jsonl
+flow end reasons  : end_of_capture=2
+rules             : loaded=2 valid=2 invalid=0 unsupported=0 disabled=0
+detections        : 3 -> TEST/BT3/case_05_direction/detections.jsonl
+engine            : events=3 candidates/event=1.667 rejected_by_header=2 matched=3 errors=0
+rule hits (sid)   : 501=1, 502=2

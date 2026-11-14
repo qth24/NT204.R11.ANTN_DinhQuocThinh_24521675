@@ -1,0 +1,2 @@
+alert tcp 10.0.0.1 any -> 10.0.0.2 80 (msg:"one way"; sid:501;)
+alert tcp 10.0.0.1 any <> 10.0.0.2 80 (msg:"both ways"; sid:502;)
