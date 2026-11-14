@@ -1,0 +1,10 @@
+# Case 01 - rule loader: comments, blank lines, a commented-out rule,
+# a rule split over two lines and one broken rule.
+
+alert tcp any any -> any 80 (msg:"A web GET"; content:"GET"; sid:101;)
+#alert tcp any any -> any 81 (msg:"commented out, must stay off"; sid:102;)
+
+alert udp any any -> any 53 (msg:"B dns"; content:"|07|example"; sid:103;)
+alert tcp any any -> any 25 \
+    (msg:"C smtp, written on two lines"; content:"MAIL"; nocase; sid:104;)
+alert tcp any any -> any 80 (msg:"D no sid"; content:"x";)
