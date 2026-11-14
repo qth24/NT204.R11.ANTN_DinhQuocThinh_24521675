@@ -20,9 +20,7 @@
   },
   "engine": {
     "enabled": true,
-    "rule_files": [
-      "rules/local.rules"
-    ],
+    "rule_files": [],
     "disabled_rule_files": [],
     "disabled_sids": [],
     "ignorable_keywords": [
