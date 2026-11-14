@@ -1,0 +1,368 @@
+{
+  "summary": {
+    "loaded": 9,
+    "valid": 9,
+    "invalid": 0,
+    "unsupported": 0,
+    "disabled": 0
+  },
+  "problems": [],
+  "warnings": [],
+  "rules": [
+    {
+      "sid": 1001,
+      "rev": 1,
+      "msg": "EF at 4, window [4,6)",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 80,
+            "high": 80
+          }
+        ]
+      },
+      "contents": [
+        {
+          "pattern": "45 46",
+          "nocase": false,
+          "offset": 4,
+          "depth": 2,
+          "distance": null,
+          "within": null
+        }
+      ],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_10_offset_depth/offset_depth.rules",
+      "line_no": 1,
+      "raw": "alert tcp any any -> any 80 (msg:\"EF at 4, window [4,6)\"; content:\"EF\"; offset:4; depth:2; sid:1001;)",
+      "status": "valid"
+    },
+    {
+      "sid": 1002,
+      "rev": 1,
+      "msg": "EF, offset 5 is too late",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 80,
+            "high": 80
+          }
+        ]
+      },
+      "contents": [
+        {
+          "pattern": "45 46",
+          "nocase": false,
+          "offset": 5,
+          "depth": 5,
+          "distance": null,
+          "within": null
+        }
+      ],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_10_offset_depth/offset_depth.rules",
+      "line_no": 2,
+      "raw": "alert tcp any any -> any 80 (msg:\"EF, offset 5 is too late\"; content:\"EF\"; offset:5; depth:5; sid:1002;)",
+      "status": "valid"
+    },
+    {
+      "sid": 1003,
+      "rev": 1,
+      "msg": "EF, window [3,6) ends on the pattern",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 80,
+            "high": 80
+          }
+        ]
+      },
+      "contents": [
+        {
+          "pattern": "45 46",
+          "nocase": false,
+          "offset": 3,
+          "depth": 3,
+          "distance": null,
+          "within": null
+        }
+      ],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_10_offset_depth/offset_depth.rules",
+      "line_no": 3,
+      "raw": "alert tcp any any -> any 80 (msg:\"EF, window [3,6) ends on the pattern\"; content:\"EF\"; offset:3; depth:3; sid:1003;)",
+      "status": "valid"
+    },
+    {
+      "sid": 1004,
+      "rev": 1,
+      "msg": "EF, window [3,5) is one byte short",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 80,
+            "high": 80
+          }
+        ]
+      },
+      "contents": [
+        {
+          "pattern": "45 46",
+          "nocase": false,
+          "offset": 3,
+          "depth": 2,
+          "distance": null,
+          "within": null
+        }
+      ],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_10_offset_depth/offset_depth.rules",
+      "line_no": 4,
+      "raw": "alert tcp any any -> any 80 (msg:\"EF, window [3,5) is one byte short\"; content:\"EF\"; offset:3; depth:2; sid:1004;)",
+      "status": "valid"
+    },
+    {
+      "sid": 1005,
+      "rev": 1,
+      "msg": "IJ at the very end",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 80,
+            "high": 80
+          }
+        ]
+      },
+      "contents": [
+        {
+          "pattern": "49 4a",
+          "nocase": false,
+          "offset": 8,
+          "depth": null,
+          "distance": null,
+          "within": null
+        }
+      ],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_10_offset_depth/offset_depth.rules",
+      "line_no": 5,
+      "raw": "alert tcp any any -> any 80 (msg:\"IJ at the very end\"; content:\"IJ\"; offset:8; sid:1005;)",
+      "status": "valid"
+    },
+    {
+      "sid": 1006,
+      "rev": 1,
+      "msg": "IJ, offset 9 leaves one byte",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 80,
+            "high": 80
+          }
+        ]
+      },
+      "contents": [
+        {
+          "pattern": "49 4a",
+          "nocase": false,
+          "offset": 9,
+          "depth": null,
+          "distance": null,
+          "within": null
+        }
+      ],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_10_offset_depth/offset_depth.rules",
+      "line_no": 6,
+      "raw": "alert tcp any any -> any 80 (msg:\"IJ, offset 9 leaves one byte\"; content:\"IJ\"; offset:9; sid:1006;)",
+      "status": "valid"
+    },
+    {
+      "sid": 1007,
+      "rev": 1,
+      "msg": "AB, depth 2",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 80,
+            "high": 80
+          }
+        ]
+      },
+      "contents": [
+        {
+          "pattern": "41 42",
+          "nocase": false,
+          "offset": null,
+          "depth": 2,
+          "distance": null,
+          "within": null
+        }
+      ],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_10_offset_depth/offset_depth.rules",
+      "line_no": 7,
+      "raw": "alert tcp any any -> any 80 (msg:\"AB, depth 2\"; content:\"AB\"; depth:2; sid:1007;)",
+      "status": "valid"
+    },
+    {
+      "sid": 1008,
+      "rev": 1,
+      "msg": "BC, depth 2 too short",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 80,
+            "high": 80
+          }
+        ]
+      },
+      "contents": [
+        {
+          "pattern": "42 43",
+          "nocase": false,
+          "offset": null,
+          "depth": 2,
+          "distance": null,
+          "within": null
+        }
+      ],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_10_offset_depth/offset_depth.rules",
+      "line_no": 8,
+      "raw": "alert tcp any any -> any 80 (msg:\"BC, depth 2 too short\"; content:\"BC\"; depth:2; sid:1008;)",
+      "status": "valid"
+    },
+    {
+      "sid": 1009,
+      "rev": 1,
+      "msg": "BC, depth 3",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 80,
+            "high": 80
+          }
+        ]
+      },
+      "contents": [
+        {
+          "pattern": "42 43",
+          "nocase": false,
+          "offset": null,
+          "depth": 3,
+          "distance": null,
+          "within": null
+        }
+      ],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_10_offset_depth/offset_depth.rules",
+      "line_no": 9,
+      "raw": "alert tcp any any -> any 80 (msg:\"BC, depth 3\"; content:\"BC\"; depth:3; sid:1009;)",
+      "status": "valid"
+    }
+  ],
+  "candidates": {
+    "1": [
+      1001,
+      1002,
+      1003,
+      1004,
+      1005,
+      1006,
+      1007,
+      1008,
+      1009
+    ]
+  }
+}
