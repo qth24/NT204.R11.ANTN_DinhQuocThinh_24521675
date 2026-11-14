@@ -1,0 +1,4 @@
+alert tcp any any -> any 80 (msg:"header ok, then content"; content:"GET"; sid:701;)
+alert tcp any any -> any 443 (msg:"other port (index drops it)"; content:"GET"; sid:702;)
+alert tcp 10.9.9.9 any -> any 80 (msg:"other source ip (header rejects it)"; content:"GET"; sid:703;)
+alert udp any any -> any 80 (msg:"other protocol"; content:"GET"; sid:704;)
