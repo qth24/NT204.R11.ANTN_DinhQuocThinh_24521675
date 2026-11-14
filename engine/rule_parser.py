@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import ipaddress
 import re
+from dataclasses import dataclass
 
 from engine.rule_model import PortRange, RuleHeader
 
@@ -146,3 +147,60 @@ def _port(text: str) -> int:
     if value > 65535:
         raise ValueError(text)
     return value
+
+
+# --- options tokenizer ------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class RawOption:
+    """One ``key:value`` (or bare ``key``) option; ``value`` is still raw text
+    (quotes and escapes are decoded later by the keyword parser)."""
+
+    key: str
+    value: str | None
+
+
+def tokenize_options(text: str) -> list[RawOption]:
+    """Split the text between ``( ... )`` into options.
+
+    A small state machine instead of ``str.split(";")``, because a ``;`` must
+    NOT end an option when it is
+        * inside a quoted string  ``content:"a;b";``
+        * escaped                 ``msg:foo\;bar;``
+    State: ``in_quote`` flips on an unescaped ``"``; a backslash copies itself
+    and the next character verbatim so ``\\"`` never closes a string.
+    """
+    options: list[RawOption] = []
+    current: list[str] = []
+    in_quote = False
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if char == "\\" and index + 1 < len(text):
+            current.append(text[index : index + 2])  # keep the escape as is
+            index += 2
+            continue
+        if char == '"':
+            in_quote = not in_quote
+        if char == ";" and not in_quote:
+            _flush(current, options)
+            current = []
+        else:
+            current.append(char)
+        index += 1
+    if in_quote:
+        raise invalid("unterminated_string")
+    _flush(current, options)  # last option may omit the final ';'
+    return options
+
+
+def _flush(chars: list[str], options: list[RawOption]) -> None:
+    item = "".join(chars).strip()
+    if not item:
+        return  # empty segment, e.g. ";;" or trailing ";"
+    key, colon, value = item.partition(":")
+    key = key.strip().lower()
+    if not key or not re.fullmatch(r"[a-z0-9_.-]+", key):
+        raise invalid(f"bad_option:{item[:30]}")
+    options.append(RawOption(key, value.strip() if colon else None))
