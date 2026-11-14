@@ -1,0 +1,238 @@
+{
+  "summary": {
+    "loaded": 7,
+    "valid": 7,
+    "invalid": 0,
+    "unsupported": 0,
+    "disabled": 0
+  },
+  "problems": [],
+  "warnings": [],
+  "rules": [
+    {
+      "sid": 601,
+      "rev": 1,
+      "msg": "tcp 80",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 80,
+            "high": 80
+          }
+        ]
+      },
+      "contents": [],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_06_indexer/index.rules",
+      "line_no": 1,
+      "raw": "alert tcp any any -> any 80 (msg:\"tcp 80\"; sid:601;)",
+      "status": "valid"
+    },
+    {
+      "sid": 602,
+      "rev": 1,
+      "msg": "tcp 1-1024",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 1,
+            "high": 1024
+          }
+        ]
+      },
+      "contents": [],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_06_indexer/index.rules",
+      "line_no": 2,
+      "raw": "alert tcp any any -> any 1:1024 (msg:\"tcp 1-1024\"; sid:602;)",
+      "status": "valid"
+    },
+    {
+      "sid": 603,
+      "rev": 1,
+      "msg": "tcp any",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": []
+      },
+      "contents": [],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_06_indexer/index.rules",
+      "line_no": 3,
+      "raw": "alert tcp any any -> any any (msg:\"tcp any\"; sid:603;)",
+      "status": "valid"
+    },
+    {
+      "sid": 604,
+      "rev": 1,
+      "msg": "udp 53",
+      "action": "alert",
+      "header": {
+        "proto": "UDP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 53,
+            "high": 53
+          }
+        ]
+      },
+      "contents": [],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_06_indexer/index.rules",
+      "line_no": 4,
+      "raw": "alert udp any any -> any 53 (msg:\"udp 53\"; sid:604;)",
+      "status": "valid"
+    },
+    {
+      "sid": 605,
+      "rev": 1,
+      "msg": "udp any",
+      "action": "alert",
+      "header": {
+        "proto": "UDP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": []
+      },
+      "contents": [],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_06_indexer/index.rules",
+      "line_no": 5,
+      "raw": "alert udp any any -> any any (msg:\"udp any\"; sid:605;)",
+      "status": "valid"
+    },
+    {
+      "sid": 606,
+      "rev": 1,
+      "msg": "tcp 8080 both ways",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "<>",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 8080,
+            "high": 8080
+          }
+        ]
+      },
+      "contents": [],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_06_indexer/index.rules",
+      "line_no": 6,
+      "raw": "alert tcp any any <> any 8080 (msg:\"tcp 8080 both ways\"; sid:606;)",
+      "status": "valid"
+    },
+    {
+      "sid": 607,
+      "rev": 1,
+      "msg": "tcp 443 from 10/8",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [
+          "10.0.0.0/8"
+        ],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 443,
+            "high": 443
+          }
+        ]
+      },
+      "contents": [],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_06_indexer/index.rules",
+      "line_no": 7,
+      "raw": "alert tcp 10.0.0.0/8 any -> any 443 (msg:\"tcp 443 from 10/8\"; sid:607;)",
+      "status": "valid"
+    }
+  ],
+  "candidates": {
+    "1": [
+      601,
+      602,
+      603
+    ],
+    "2": [
+      602,
+      603,
+      607
+    ],
+    "3": [
+      603,
+      606
+    ],
+    "4": [
+      603,
+      606
+    ],
+    "5": [
+      604,
+      605
+    ],
+    "6": [
+      605
+    ],
+    "7": [
+      603
+    ]
+  }
+}

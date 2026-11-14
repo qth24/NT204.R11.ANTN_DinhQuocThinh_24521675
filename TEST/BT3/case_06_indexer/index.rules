@@ -1,0 +1,7 @@
+alert tcp any any -> any 80 (msg:"tcp 80"; sid:601;)
+alert tcp any any -> any 1:1024 (msg:"tcp 1-1024"; sid:602;)
+alert tcp any any -> any any (msg:"tcp any"; sid:603;)
+alert udp any any -> any 53 (msg:"udp 53"; sid:604;)
+alert udp any any -> any any (msg:"udp any"; sid:605;)
+alert tcp any any <> any 8080 (msg:"tcp 8080 both ways"; sid:606;)
+alert tcp 10.0.0.0/8 any -> any 443 (msg:"tcp 443 from 10/8"; sid:607;)

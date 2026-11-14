@@ -1,0 +1,14 @@
+packets processed : 7
+events written    : 7 -> TEST/BT3/case_06_indexer/events.jsonl
+skipped (unknown) : 0
+events with error : 0
+protocols         : TCP=5, UDP=2
+app protocols     : -
+preprocess status : partial=1, valid=6
+dropped           : 0
+flows exported    : 6 -> TEST/BT3/case_06_indexer/flows.jsonl
+flow end reasons  : end_of_capture=6
+rules             : loaded=7 valid=7 invalid=0 unsupported=0 disabled=0
+detections        : 14 -> TEST/BT3/case_06_indexer/detections.jsonl
+engine            : events=7 candidates/event=2.0 rejected_by_header=0 matched=14 errors=0
+rule hits (sid)   : 601=1, 602=2, 603=5, 604=1, 605=2, 606=2, 607=1
