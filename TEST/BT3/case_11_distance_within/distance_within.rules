@@ -1,0 +1,8 @@
+alert tcp any any -> any 80 (msg:"admin right after user="; content:"user="; content:"admin"; distance:0; within:5; sid:1101;)
+alert tcp any any -> any 80 (msg:"pass not within 5"; content:"user="; content:"pass"; distance:0; within:5; sid:1102;)
+alert tcp any any -> any 80 (msg:"pass within 15"; content:"user="; content:"pass"; distance:0; within:15; sid:1103;)
+alert tcp any any -> any 80 (msg:"pass= at distance 6"; content:"user="; content:"pass="; distance:6; within:5; sid:1104;)
+alert tcp any any -> any 80 (msg:"pass= at distance 7 misses"; content:"user="; content:"pass="; distance:7; within:5; sid:1105;)
+alert tcp any any -> any 80 (msg:"negative distance"; content:"admin"; content:"in&"; distance:-2; within:3; sid:1106;)
+alert tcp any any -> any 80 (msg:"first AB fails, second AB works"; content:"AB"; content:"XY"; distance:1; within:2; sid:1107;)
+alert tcp any any -> any 80 (msg:"no AB leaves XY in reach"; content:"AB"; content:"XY"; distance:0; within:2; sid:1108;)
