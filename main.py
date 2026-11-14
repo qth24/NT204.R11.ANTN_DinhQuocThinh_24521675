@@ -11,6 +11,9 @@ Examples:
     python main.py --pcap test.pcap --set decoder.max_body_bytes=4096
     python main.py --pcap test.pcap --bt1-only
     python main.py --events events_in.jsonl -o events.jsonl   # BT2 stages only
+    python main.py --pcap test.pcap --rules rules/local.rules \\
+        --detection-output detections.jsonl                 # BT3 engine
+    python main.py --pcap test.pcap --no-detect              # BT2 behaviour
 """
 
 from __future__ import annotations
@@ -19,11 +22,13 @@ import argparse
 import logging
 import sys
 from collections.abc import Iterable, Sequence
+from contextlib import ExitStack
 
 from capture import CaptureError, RawPacket, live_packets, read_pcap
 from config import ConfigError, load_config
 from core.logger import JsonLinesWriter, read_jsonl
 from core.pipeline import Pipeline, PipelineStats
+from engine.factory import EngineBundle, build_engine
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -49,6 +54,23 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--flow-output",
         default="flows.jsonl",
         help="JSON Lines file for finished flows (default: flows.jsonl)",
+    )
+    parser.add_argument(
+        "--rules",
+        action="append",
+        default=[],
+        metavar="FILE_OR_DIR",
+        help="Snort rule file or directory (repeatable); replaces engine.rule_files",
+    )
+    parser.add_argument(
+        "--detection-output",
+        default="detections.jsonl",
+        help="JSON Lines file for Detection Events (default: detections.jsonl)",
+    )
+    parser.add_argument(
+        "--no-detect",
+        action="store_true",
+        help="turn the rule engine off (BT2 behaviour)",
     )
     parser.add_argument(
         "--append", action="store_true", help="append to --output / --flow-output"
@@ -117,20 +139,52 @@ def main(argv: Sequence[str] | None = None) -> int:
             timeout=args.timeout,
         )
 
-    pipeline = Pipeline(skip_unknown=args.skip_unknown, config=config)
+    # BT3 engine: rules are loaded once here, before any packet is processed.
+    bundle: EngineBundle | None = None
+    use_engine = (
+        not args.bt1_only
+        and not args.no_detect
+        and config.engine.enabled
+        and bool(args.rules or config.engine.rule_files)
+    )
+    if use_engine:
+        bundle = build_engine(config.engine, args.rules)
+
     stats = PipelineStats()
     try:
-        with JsonLinesWriter(args.output, append=args.append) as writer:
+        with ExitStack() as stack:
+            writer = stack.enter_context(
+                JsonLinesWriter(
+                    args.output,
+                    append=args.append,
+                    payload_b64=config.engine.log_payload,
+                )
+            )
+            detections = (
+                stack.enter_context(
+                    JsonLinesWriter(args.detection_output, append=args.append)
+                )
+                if bundle
+                else None
+            )
+            pipeline = Pipeline(
+                skip_unknown=args.skip_unknown,
+                config=config,
+                engine=bundle,
+                detection_sink=detections.write if detections else None,
+            )
             if args.bt1_only:
                 stats = pipeline.run(source, writer.write)
             else:
-                with JsonLinesWriter(args.flow_output, append=args.append) as flows:
-                    if args.events:
-                        stats = pipeline.run_events(
-                            read_jsonl(args.events), writer.write, flows.write
-                        )
-                    else:
-                        stats = pipeline.run_bt2(source, writer.write, flows.write)
+                flows = stack.enter_context(
+                    JsonLinesWriter(args.flow_output, append=args.append)
+                )
+                if args.events:
+                    stats = pipeline.run_events(
+                        read_jsonl(args.events), writer.write, flows.write
+                    )
+                else:
+                    stats = pipeline.run_bt2(source, writer.write, flows.write)
     except CaptureError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -142,6 +196,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 130
 
     _print_summary(stats, args.output, None if args.bt1_only else args.flow_output)
+    if bundle is not None:
+        _print_engine_summary(bundle, stats, args.detection_output)
     return 0
 
 
@@ -164,6 +220,25 @@ def _print_summary(stats: PipelineStats, output: str, flow_output: str | None) -
             f"flows exported    : {stats.flows_exported} -> {flow_output}",
             "flow end reasons  : " + _format_counter(stats.flow_end_reasons),
         ]
+    print("\n".join(lines), file=sys.stderr)
+
+
+def _print_engine_summary(
+    bundle: EngineBundle, stats: PipelineStats, detection_output: str
+) -> None:
+    summary = bundle.load.summary
+    ev = bundle.evaluator.summary()
+    lines = [
+        f"rules             : loaded={summary.loaded} valid={summary.valid} "
+        f"invalid={summary.invalid} unsupported={summary.unsupported} "
+        f"disabled={summary.disabled}",
+        f"detections        : {stats.detections} -> {detection_output}",
+        f"engine            : events={ev['events_evaluated']} "
+        f"candidates/event={ev['candidates_per_event']} "
+        f"rejected_by_header={ev['rules_rejected_by_header']} "
+        f"matched={ev['rules_matched']} errors={ev['rule_errors']}",
+        "rule hits (sid)   : " + _format_counter(ev["hits_by_sid"]),
+    ]
     print("\n".join(lines), file=sys.stderr)
 
 

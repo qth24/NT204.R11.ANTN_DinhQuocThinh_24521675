@@ -29,6 +29,7 @@ from capture.raw_packet import RawPacket
 from config import Config
 from core.event import IDSEvent
 from decoder import decode_event
+from engine.factory import EngineBundle
 from flow.tracker import FlowTracker
 from parsers.app import AppResult
 from parsers.app.dns_parser import parse_dns
@@ -57,6 +58,7 @@ class PipelineStats:
     by_protocol: Counter[str] = field(default_factory=Counter)
     by_app_protocol: Counter[str] = field(default_factory=Counter)
     by_preprocess_status: Counter[str] = field(default_factory=Counter)
+    detections: int = 0
     flows_exported: int = 0
     flow_end_reasons: Counter[str] = field(default_factory=Counter)
 
@@ -75,10 +77,16 @@ class Pipeline:
         skip_unknown: bool = False,
         config: Config | None = None,
         detect: bool = False,
+        engine: EngineBundle | None = None,
+        detection_sink: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
         self.skip_unknown = skip_unknown
         # BT3: events also get ``payload`` (bytes) and ``flow_context``.
-        self.detect = detect
+        # An engine implies detect mode (payload + flow context on events).
+        self.engine = engine
+        self.detection_sink = detection_sink
+        self.detect = detect or engine is not None
+        self._detections = 0
         self.config = config or Config()
         # The only mutable state: packet counter used for packet_id.
         # (The flow table lives inside the FlowTracker instance.)
@@ -145,7 +153,25 @@ class Pipeline:
                 exported = []
             for record in exported:
                 self._flow_out(record, flow_sink)
+        self._detect(event)
         return event
+
+    def _detect(self, event: dict[str, Any]) -> None:
+        """BT3 stage after the flow tracker: rules -> Detection Events.
+
+        Only events that passed the preprocessor reach this point (drop was
+        returned earlier; the evaluator also ignores invalid ones).
+        """
+        if self.engine is None:
+            return
+        try:
+            results = self.engine.evaluator.evaluate(event)
+            for detection in self.engine.generator.generate(event, results):
+                self._detections += 1
+                if self.detection_sink is not None:
+                    self.detection_sink(detection.to_dict())
+        except Exception:  # detection must never stop the pipeline
+            logger.exception("detection failed on packet %s", event.get("packet_id"))
 
     def _attach_payload(self, event: dict[str, Any], payload: bytes | None) -> None:
         """Set ``event["payload"]`` (bytes, cut to engine.max_payload_bytes).
@@ -256,6 +282,7 @@ class Pipeline:
         finally:
             self.flush_flows(flow_sink)
             stats.flows_exported = self._flows_exported
+            stats.detections = self._detections
             stats.flow_end_reasons = Counter(self._flow_end_reasons)
         return stats
 
@@ -274,6 +301,7 @@ class Pipeline:
         finally:
             self.flush_flows(flow_sink)
             stats.flows_exported = self._flows_exported
+            stats.detections = self._detections
             stats.flow_end_reasons = Counter(self._flow_end_reasons)
         return stats
 
