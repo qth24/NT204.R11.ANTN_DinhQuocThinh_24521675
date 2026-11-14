@@ -1,0 +1,191 @@
+{
+  "summary": {
+    "loaded": 4,
+    "valid": 4,
+    "invalid": 0,
+    "unsupported": 0,
+    "disabled": 0
+  },
+  "problems": [],
+  "warnings": [],
+  "rules": [
+    {
+      "sid": 901,
+      "rev": 1,
+      "msg": "case sensitive",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 80,
+            "high": 80
+          }
+        ]
+      },
+      "contents": [
+        {
+          "pattern": "47 45 54 20 2f",
+          "nocase": false,
+          "offset": null,
+          "depth": null,
+          "distance": null,
+          "within": null
+        }
+      ],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_09_content_nocase/nocase.rules",
+      "line_no": 1,
+      "raw": "alert tcp any any -> any 80 (msg:\"case sensitive\"; content:\"GET /\"; sid:901;)",
+      "status": "valid"
+    },
+    {
+      "sid": 902,
+      "rev": 1,
+      "msg": "nocase",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 80,
+            "high": 80
+          }
+        ]
+      },
+      "contents": [
+        {
+          "pattern": "67 65 74 20 2f",
+          "nocase": true,
+          "offset": null,
+          "depth": null,
+          "distance": null,
+          "within": null
+        }
+      ],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_09_content_nocase/nocase.rules",
+      "line_no": 2,
+      "raw": "alert tcp any any -> any 80 (msg:\"nocase\"; content:\"get /\"; nocase; sid:902;)",
+      "status": "valid"
+    },
+    {
+      "sid": 903,
+      "rev": 1,
+      "msg": "hex GET",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 80,
+            "high": 80
+          }
+        ]
+      },
+      "contents": [
+        {
+          "pattern": "47 45 54",
+          "nocase": false,
+          "offset": null,
+          "depth": null,
+          "distance": null,
+          "within": null
+        }
+      ],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_09_content_nocase/nocase.rules",
+      "line_no": 3,
+      "raw": "alert tcp any any -> any 80 (msg:\"hex GET\"; content:\"|47 45 54|\"; sid:903;)",
+      "status": "valid"
+    },
+    {
+      "sid": 904,
+      "rev": 1,
+      "msg": "nocase is ASCII only",
+      "action": "alert",
+      "header": {
+        "proto": "TCP",
+        "src_nets": [],
+        "src_ports": [],
+        "direction": "->",
+        "dst_nets": [],
+        "dst_ports": [
+          {
+            "low": 80,
+            "high": 80
+          }
+        ]
+      },
+      "contents": [
+        {
+          "pattern": "67 c3 a9 74",
+          "nocase": true,
+          "offset": null,
+          "depth": null,
+          "distance": null,
+          "within": null
+        }
+      ],
+      "flow": null,
+      "flags": null,
+      "dsize": null,
+      "classtype": null,
+      "priority": null,
+      "source_file": "TEST/BT3/case_09_content_nocase/nocase.rules",
+      "line_no": 4,
+      "raw": "alert tcp any any -> any 80 (msg:\"nocase is ASCII only\"; content:\"g\u00e9t\"; nocase; sid:904;)",
+      "status": "valid"
+    }
+  ],
+  "candidates": {
+    "1": [
+      901,
+      902,
+      903,
+      904
+    ],
+    "2": [
+      901,
+      902,
+      903,
+      904
+    ],
+    "3": [
+      901,
+      902,
+      903,
+      904
+    ],
+    "4": [
+      901,
+      902,
+      903,
+      904
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+alert tcp any any -> any 80 (msg:"case sensitive"; content:"GET /"; sid:901;)
+alert tcp any any -> any 80 (msg:"nocase"; content:"get /"; nocase; sid:902;)
+alert tcp any any -> any 80 (msg:"hex GET"; content:"|47 45 54|"; sid:903;)
+alert tcp any any -> any 80 (msg:"nocase is ASCII only"; content:"gét"; nocase; sid:904;)
