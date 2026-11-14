@@ -63,11 +63,7 @@ def test_reject_reason_is_reported():
     event = first_event()
     event["payload"] = b"GET /"
     matcher = RuleMatcher()
-    assert matcher.match(
-        rules[703], event, None
-    ).reason_no_match == "address_or_port" or (
-        matcher.match(rules[703], event, None).reason_no_match == "direction"
-    )
+    assert matcher.match(rules[703], event, None).reason_no_match == "direction"
     assert matcher.match(rules[704], event, None).reason_no_match == "protocol"
 
 
