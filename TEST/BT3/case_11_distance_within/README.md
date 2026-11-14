@@ -17,4 +17,4 @@
 | 1107 | `AB` → `XY` distance 1 within 2 | gói 2 | **match**: `AB`@0 thất bại, quay lại `AB`@3 → `XY`@6 |
 | 1108 | `AB` → `XY` distance 0 within 2 | gói 2 | không |
 
-Thực tế: gói 1 → 1101, 1103, 1104, 1106; gói 2 → 1107. Với `max_backtrack=1` rule 1107 không match (hết ngân sách), `=2` thì match. **Kết luận: PASS**
+Thực tế: gói 1 → 1101, 1103, 1104, 1106; gói 2 → 1107. Mỗi vị trí đã thử được tính 1 (AB@0, AB@3, XY@6 = 3): với `max_backtrack=2` rule 1107 không match (hết ngân sách), `=3` thì match. **Kết luận: PASS**

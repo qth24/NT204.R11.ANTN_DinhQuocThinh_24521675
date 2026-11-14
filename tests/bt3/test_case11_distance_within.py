@@ -42,8 +42,9 @@ def test_previous_content_with_several_occurrences_is_retried():
 
 
 def test_backtrack_limit_stops_the_search():
-    assert offsets(1107, REPEAT, max_backtrack=1) is None  # budget used by 1st AB
-    assert offsets(1107, REPEAT, max_backtrack=2) == [3, 6]
+    # every position tried counts: AB@0, AB@3, XY@6 = 3 tries are needed
+    assert offsets(1107, REPEAT, max_backtrack=2) is None
+    assert offsets(1107, REPEAT, max_backtrack=3) == [3, 6]
 
 
 def test_end_to_end(tmp_path):
