@@ -23,7 +23,7 @@ import ipaddress
 import re
 from dataclasses import dataclass
 
-from engine.rule_model import PortRange, RuleHeader
+from engine.rule_model import ContentOption, PortRange, RuleHeader
 
 
 class RuleError(Exception):
@@ -162,7 +162,7 @@ class RawOption:
 
 
 def tokenize_options(text: str) -> list[RawOption]:
-    """Split the text between ``( ... )`` into options.
+    r"""Split the text between ``( ... )`` into options.
 
     A small state machine instead of ``str.split(";")``, because a ``;`` must
     NOT end an option when it is
@@ -204,3 +204,117 @@ def _flush(chars: list[str], options: list[RawOption]) -> None:
     if not key or not re.fullmatch(r"[a-z0-9_.-]+", key):
         raise invalid(f"bad_option:{item[:30]}")
     options.append(RawOption(key, value.strip() if colon else None))
+
+
+# --- strings and content ----------------------------------------------------
+
+_HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
+CONTENT_MODIFIERS = ("nocase", "offset", "depth", "distance", "within")
+
+
+def unquote(raw: str | None, allow_hex: bool = True) -> bytes:
+    """Decode a Snort quoted string into bytes.
+
+    ``"GET |2f 69|ndex"`` -> ``b"GET /index"``. Rules:
+        * the value must be wrapped in double quotes
+        * ``\\"``, ``\\;``, ``\\\\`` (any escaped punctuation) -> that literal char
+        * text between ``|...|`` is hex byte pairs (spaces allowed)
+    Raises RuleError (invalid:...) on any malformed input.
+    """
+    if raw is None or len(raw) < 2 or raw[0] != '"' or raw[-1] != '"':
+        raise invalid("bad_string")
+    body = raw[1:-1]
+    out = bytearray()
+    in_hex = False
+    hex_digits: list[str] = []
+    index = 0
+    while index < len(body):
+        char = body[index]
+        if in_hex:
+            if char == "|":
+                if len(hex_digits) % 2:
+                    raise invalid("bad_hex:odd_digits")
+                out += bytes.fromhex("".join(hex_digits))
+                hex_digits, in_hex = [], False
+            elif char == " ":
+                pass
+            elif char in _HEX_DIGITS:
+                hex_digits.append(char)
+            else:
+                raise invalid(f"bad_hex:{char}")
+        elif char == "|" and allow_hex:
+            in_hex = True
+        elif char == "\\":
+            index += 1
+            if index >= len(body) or body[index].isalnum():
+                raise invalid("bad_escape")
+            out += body[index].encode("utf-8")
+        elif char == '"':
+            raise invalid("unescaped_quote")
+        else:
+            out += char.encode("utf-8")
+        index += 1
+    if in_hex:
+        raise invalid("bad_hex:unclosed")
+    return bytes(out)
+
+
+def parse_content_options(
+    options: list[RawOption],
+) -> tuple[list[ContentOption], list[RawOption]]:
+    """Build ``ContentOption`` objects; return them plus the other options.
+
+    A modifier (nocase/offset/depth/distance/within) belongs to the nearest
+    ``content`` BEFORE it. Checks done here:
+        * modifier with no content before it  -> invalid:<kw>_without_content
+        * same modifier twice on one content   -> invalid:duplicate_modifier
+        * offset together with distance        -> invalid:offset_with_distance
+        * depth / within shorter than pattern  -> invalid:depth_too_small /
+          invalid:within_too_small (the pattern could never fit)
+    """
+    builders: list[dict] = []
+    rest: list[RawOption] = []
+    for option in options:
+        if option.key == "content":
+            if option.value is not None and option.value.startswith("!"):
+                raise unsupported("content_negation")
+            pattern = unquote(option.value)
+            if not pattern:
+                raise invalid("empty_content")
+            builders.append({"pattern": pattern})
+        elif option.key in CONTENT_MODIFIERS:
+            if not builders:
+                raise invalid(f"{option.key}_without_content")
+            current = builders[-1]
+            if option.key in current:
+                raise invalid(f"duplicate_modifier:{option.key}")
+            if option.key == "nocase":
+                if option.value is not None:
+                    raise invalid("bad_value:nocase")
+                current["nocase"] = True
+            else:
+                current[option.key] = _int_value(option)
+        else:
+            rest.append(option)
+
+    contents: list[ContentOption] = []
+    for item in builders:
+        size = len(item["pattern"])
+        if "offset" in item and "distance" in item:
+            raise invalid("offset_with_distance")
+        if item.get("offset", 0) < 0:
+            raise invalid("bad_value:offset")
+        if "depth" in item and item["depth"] < size:
+            raise invalid(f"depth_too_small:{item['depth']}<{size}")
+        if "within" in item and item["within"] < size:
+            raise invalid(f"within_too_small:{item['within']}<{size}")
+        contents.append(ContentOption(**item))
+    return contents, rest
+
+
+def _int_value(option: RawOption) -> int:
+    try:
+        # distance may be negative ("-3"); int() also accepts a sign
+        return int(option.value or "")
+    except ValueError as exc:
+        raise invalid(f"bad_value:{option.key}") from exc
