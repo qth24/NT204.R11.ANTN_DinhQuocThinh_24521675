@@ -1,0 +1,2 @@
+alert tcp any any -> any 80 (msg:"WEB traversal in GET"; flow:to_server,established; content:"GET "; depth:4; content:"../"; distance:0; classtype:web-application-attack; priority:1; sid:1401; rev:2;)
+alert udp any any -> any 53 (msg:"DNS query example.com"; content:"|07|example|03|com|00|"; nocase; classtype:misc-activity; sid:1402;)
